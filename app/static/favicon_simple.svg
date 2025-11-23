@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 64 64"
+  width="64"
+  height="64"
+>
+  <!-- Hintergrund: Weiß -->
+  <rect width="64" height="64" fill="#ffffff"/>
+
+  <!-- Praxisfarbe + -->
+  <rect x="28" y="14" width="8" height="36" fill="#984649"/>
+  <rect x="14" y="28" width="36" height="8" fill="#984649"/>
+</svg>

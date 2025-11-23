@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "type": "qualitaets_checkliste",
+  "source": "Beihilfe-Checkliste",
+  "applies_to": "Verhaltenstherapie (VT), Erwachsene",
+  "notes": [
+    "Checklistenpunkte dienen der inhaltlichen Ausgestaltung einzelner Abschnitte.",
+    "Gliederung richtet sich weiterhin ausschließlich nach dem PTV-3-Leitfaden."
+  ],
+
+  "1_symptomatik": {
+    "beschreibung": "Hinweise zur Darstellung der Symptomatik.",
+    "checkpunkte": [
+      "Beschwerdebild so schildern, dass Diagnose nachvollziehbar wird.",
+      "Genauen Zeitpunkt des Beginns der Erkrankung nennen.",
+      "Auslösendes Ereignis nennen (meist 6–12 Wochen vor Symptombeginn).",
+      "Typische Situation beschreiben, in der das Symptom auftritt."
+    ]
+  },
+
+  "2_lebensgeschichte_und_anamnese": {
+    "beschreibung": "Vertiefende biographische Angaben, sofern für das funktionale Bedingungsmodell relevant.",
+    "checkpunkte": [
+      "Eltern, Beziehung der Eltern zueinander und zur Patientin / dem Patienten beschreiben.",
+      "Ressourcen und belastende Faktoren der Lerngeschichte benennen.",
+      "Entwicklung des Sozialverhaltens darstellen.",
+      "Entwicklung des Umgangs mit Gefühlen beschreiben.",
+      "Entwicklung des Leistungsverhaltens beschreiben.",
+      "Belastende Lebensereignisse in Kindheit und Jugend nennen.",
+      "Körperliche Entwicklung und relevante körperliche Erkrankungen nennen.",
+      "Sexuelle Entwicklung kurz darstellen.",
+      "Schulischen und beruflichen Werdegang skizzieren.",
+      "Aktuelle berufliche Situation beschreiben.",
+      "Wichtige Beziehungen im Erwachsenenalter beschreiben.",
+      "Aktuelle Partnerschaft / Ehesituation darstellen.",
+      "Frühere psychische oder psychosomatische Erkrankungen mit Verlauf nennen.",
+      "Lebenssituation der letzten zwei Jahre vor Erkrankungsbeginn knapp skizzieren.",
+      "Das symptomauslösende Lebensereignis beschreiben."
+    ]
+  },
+
+  "3_psychischer_befund": {
+    "beschreibung": "Ergänzungspunkte zur Befunderhebung.",
+    "checkpunkte": [
+      "Interaktionsverhalten in der therapeutischen Beziehung beschreiben.",
+      "Persönliche Merkmale und Handlungstendenzen im interpersonellen Bereich benennen.",
+      "Dysfunktionale Persönlichkeitszüge (z. B. selbstunsicher, dependent, zwanghaft) nennen.",
+      "Symptome aus Exploration und Befunderhebung zusammenfassen.",
+      "Syndrom benennen, dem die Hauptsymptome zuzuordnen sind (z. B. Angst, Depression, Zwang)."
+    ]
+  },
+
+  "4_somatischer_befund": {
+    "beschreibung": "Zusätzliche Anmerkungen zum somatischen Befund.",
+    "checkpunkte": [
+      "Konsiliarbericht berücksichtigen.",
+      "Relevante körperliche Erkrankungen oder Befunde einbeziehen."
+    ]
+  },
+
+  "5_verhaltens_und_bedingungsanalyse": {
+    "beschreibung": "Detaillierte Checkliste für das funktionale Bedingungsmodell.",
+    "mikroebene": [
+      "Verhaltensanalyse auf Mikroebene durchführen und beschreiben.",
+      "Typische auslösende Situation des problematischen Verhaltens benennen.",
+      "Verhalten in vier Modi beschreiben: emotional, kognitiv, körperlich, beobachtbar.",
+      "Verhaltensdefizite benennen (zu seltenes Verhalten).",
+      "Verhaltensexzesse benennen (zu häufiges Verhalten).",
+      "Qualitativ neues Verhalten benennen (Symptomverhalten)."
+    ],
+    "makroebene": [
+      "Makroanalyse durchführen: Warum gerade diese Person zu diesem Zeitpunkt?",
+      "Lebensgestaltung, Beziehungsgestaltung und auslösende Ereignisse analysieren.",
+      "Bedingungen der Krankheitsentstehung aus Lerngeschichte, Persönlichkeit, Defiziten, Konflikten herleiten.",
+      "Symptombildung als (fehlgeschlagene) Problemlösung erklären.",
+      "Auswirkungen des Symptoms auf Lebensbereiche und Beziehungen darstellen.",
+      "Funktionsanalyse durchführen: Welche Funktion erfüllt das Symptom?",
+      "Gesamtstörung in einem Satz zusammenfassen."
+    ]
+  },
+
+  "6_diagnose": {
+    "beschreibung": "Qualitätssicherung Diagnostik.",
+    "checkpunkte": [
+      "ICD-Diagnose mit Zahlencode und Text angeben.",
+      "Prüfen, ob alle für die Diagnose relevanten Symptome ausreichend vorhanden sind.",
+      "Verknüpfung der Symptomatik mit Befund- und Explorationsabschnitten sicherstellen."
+    ]
+  },
+
+  "7_therapieziele_und_prognose": {
+    "beschreibung": "Checkliste für Zieldefinition und Prognose.",
+    "checkpunkte": [
+      "Gesamtziel formulieren, das sich aus der Störungsanalyse ableitet.",
+      "Teilziele konkret und verhaltensbezogen in typischen Situationen definieren.",
+      "Zielintensität definieren (wie weit soll Veränderung gehen?).",
+      "Prognose unter Berücksichtigung günstiger und ungünstiger Faktoren einschätzen."
+    ]
+  },
+
+  "8_behandlungsplan": {
+    "beschreibung": "Qualitätskriterien für die Behandlungsplanung.",
+    "checkpunkte": [
+      "Gesamtstrategie formulieren (übergeordneter Plan).",
+      "Konkrete Interventionen benennen und begründen.",
+      "Setting beschreiben und begründen (Einzel/Gruppen/Einbezug Partner).",
+      "Sitzungssequenz oder Frequenz erläutern."
+    ]
+  },
+
+  "9_begruendung_umwandlung": {
+    "beschreibung": "Zusatzpunkte bei Umwandlung KZT → LZT.",
+    "checkpunkte": [
+      "Notwendigkeit der Umwandlung klar begründen.",
+      "Bisher verfolgte Ziele beschreiben.",
+      "Bisherige Interventionen darstellen.",
+      "Verlauf und Zwischenergebnis der Therapie schildern.",
+      "Neue bzw. weiterführende Ziele und geplante Maßnahmen kurz darstellen."
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+psych.domain.local {
+    tls /certs/psych.domain.local.pem /certs/psych.domain.local-key.pem
+    reverse_proxy psych-assistant:5000
+}

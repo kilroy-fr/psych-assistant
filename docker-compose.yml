@@ -1,0 +1,29 @@
+services:
+  psych-assistant:
+    build: .
+    container_name: psych-assistant
+    ports:
+      - "5005:5000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434   # <--- WICHTIG: kein 172.x mehr
+    networks:
+      - ollama-net
+    volumes:
+      - ./data:/app/data/data
+      - ./storage:/app/storage
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    ports:
+      - "443:443"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - ./certs:/certs:ro
+    depends_on:
+      - psych-assistant
+    networks:
+      - ollama-net
+
+networks:
+  ollama-net:
+    external: true

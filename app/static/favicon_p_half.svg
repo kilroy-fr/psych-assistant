@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 64 64"
+  width="256"
+  height="256"
+>
+  <rect width="64" height="64" fill="#ffffff"/>
+  <rect x="28" y="14" width="8" height="36" fill="#984649"/>
+  <rect x="14" y="28" width="36" height="8" fill="#984649"/>
+  <!-- P half the previous size: 32 -->
+  <text
+    x="60"
+    y="60"
+    text-anchor="end"
+    font-family="Verdana, sans-serif"
+    font-size="32"
+    fill="#555555"
+  >P</text>
+</svg>

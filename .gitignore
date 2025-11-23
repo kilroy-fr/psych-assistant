@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Zertifikate (sensibel!)
+certs/
+
+# Claude Code lokale Einstellungen
+.claude/
+
+# Logs und Debug-Dateien
+*.log
+data/debug_results.log
+
+# Temporäre Dateien
+*.tmp
+new1.txt
+lines.txt
+
+# Storage (falls lokal generiert, optional entfernen wenn gewünscht)
+# storage/
+
+# OS-spezifisch
+.DS_Store
+Thumbs.db

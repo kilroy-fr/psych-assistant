@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Psychotherapie-KI-Assistent (lokal)</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <div class="header-container">
+      <div class="header-left">
+        <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Praxis Logo" class="logo">
+        <h1>Psychotherapie-KI-Assistent</h1>
+      </div>
+    </div>
+    <p class="disclaimer">
+      Hinweis: Der Bericht ersetzt keine fachliche Entscheidung.
+      Verantwortung für Anträge und Formulierungen liegt stets bei der Psychotherapeutin / dem Psychotherapeuten.
+    </p>
+	<form id="qa-form" method="post" action="/ask" enctype="multipart/form-data">
+
+	  <!-- Zwei Eingabefelder nebeneinander -->
+	  <div class="input-row">
+	    <!-- Links: Datei hochladen -->
+	    <div id="input-files" class="input-panel">
+	      <div class="panel-header">
+	        <span class="panel-title">Dateien hochladen</span>
+	        <button type="button" id="clear-files" class="clear-btn" style="display: none;">Leeren</button>
+	      </div>
+	      <div id="drop-zone" class="drop-zone">
+	        <div class="drop-zone-content">
+	          <div class="drop-zone-icon">📁</div>
+	          <p class="drop-zone-text">Dateien hierher ziehen</p>
+	          <p class="drop-zone-hint">oder klicken zum Auswählen</p>
+	          <p class="drop-zone-formats">PDF, TXT, DOCX</p>
+	        </div>
+	        <input id="files" name="files" type="file"
+	               accept=".pdf,.txt,.docx" multiple>
+	      </div>
+	      <div id="file-list" class="file-list"></div>
+	    </div>
+
+	    <!-- Trennlinie -->
+	    <div class="input-divider">
+	      <span>oder</span>
+	    </div>
+
+	    <!-- Rechts: Text einfügen -->
+	    <div id="input-paste" class="input-panel">
+	      <div class="panel-header">
+	        <span class="panel-title">Text einfügen</span>
+	        <button type="button" id="clear-paste" class="clear-btn" style="display: none;">Leeren</button>
+	      </div>
+	      <textarea id="paste-text" name="paste_text"
+	                placeholder="Text hier einfügen (Strg+V)"></textarea>
+	      <div class="paste-info">
+	        <span id="char-count">0 Zeichen</span>
+	      </div>
+	    </div>
+	  </div>
+
+	  <button id="submit-btn" type="submit" disabled style="opacity: 0.5; cursor: not-allowed;">Bericht erstellen</button>
+	</form>
+
+  <div id="answer-container" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3 style="margin: 0;">Ergebnis</h3>
+      <a id="download-link" href="#" download="vergleich.docx" style="padding: 8px 16px; cursor: pointer; text-decoration: none; background: #4CAF50; color: white; border-radius: 4px;">Vergleichstabelle herunterladen (DOCX)</a>
+    </div>
+
+    <!-- Interaktive Vergleichstabelle -->
+    <div id="comparison-table-container">
+      <table id="comparison-table">
+        <thead>
+          <tr>
+            <th id="model-header-1"></th>
+            <th id="model-header-2"></th>
+            <th id="model-header-3"></th>
+            <th id="model-header-4"></th>
+          </tr>
+        </thead>
+        <tbody id="comparison-tbody">
+          <!-- Zeilen werden dynamisch generiert -->
+        </tbody>
+      </table>
+      <button id="create-text-btn" type="button">Text erstellen</button>
+    </div>
+
+  </div>
+
+  <!-- Spinner Overlay -->
+  <div id="spinner-overlay" style="display: none;">
+    <div class="spinner-content">
+      <div class="spinner-circle"></div>
+      <div id="spinner-status" class="spinner-status">Verarbeite 4 Modellkombinationen...</div>
+      <div id="spinner-timer" class="spinner-timer">00:00</div>
+      <div class="spinner-models" style="text-align: left; margin-top: 10px;">
+        <div class="combo-item">1. qwen2.5:14b + gpt-oss:20b</div>
+        <div class="combo-item">2. qwen2.5:14b + deepseek-r1:14b</div>
+        <div class="combo-item">3. qwen3:14b + gpt-oss:20b</div>
+        <div class="combo-item">4. qwen3:14b + deepseek-r1:14b</div>
+      </div>
+      <button id="cancel-btn" type="button" class="cancel-btn">Abbrechen</button>
+    </div>
+  </div>
+  </div>
+
+
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

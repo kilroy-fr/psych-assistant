@@ -1,0 +1,10 @@
+flask
+llama-index
+llama-index-llms-ollama
+llama-index-embeddings-ollama
+pydantic>=2
+python-dotenv
+Werkzeug
+requests
+docx2txt
+python-docx
