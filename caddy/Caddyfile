@@ -1,3 +1,7 @@
+http://psych.domain.local {
+    redir https://psych.domain.local{uri} permanent
+}
+
 psych.domain.local {
     tls /certs/psych.domain.local.pem /certs/psych.domain.local-key.pem
     reverse_proxy psych-assistant:5000
