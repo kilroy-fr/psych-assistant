@@ -7,7 +7,7 @@ import logging
 import requests
 from flask import Flask, render_template, request, jsonify, send_file
 from app.rag.query_engine import answer_question
-from app.docx_generator import create_comparison_docx, create_flowing_text_docx
+from app.docx_generator import create_comparison_docx, create_flowing_text_docx, redact_sensitive_text
 
 app = Flask(__name__)
 
@@ -34,7 +34,7 @@ MODEL_COMBINATIONS = [
     {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 4 (nutzt Pass1 von Kombi 3)
 ]
 
-# Abschnitts-Ueberschriften (7 Abschnitte)
+# Abschnitts-Ueberschriften (6 Abschnitte, Abschnitt 7 entfaellt)
 SECTION_HEADERS = [
     "Relevante soziodemographische Daten",
     "Symptomatik und psychischer Befund",
@@ -42,7 +42,6 @@ SECTION_HEADERS = [
     "Behandlungsrelevante Angaben zur Lebensgeschichte, Krankheitsanamnese, funktionales Bedingungsmodell (VT)",
     "Diagnose zum Zeitpunkt der Antragsstellung",
     "Behandlungsplan und Prognose",
-    "Zusätzlich erforderliche Angaben bei einem Umwandlungsantrag",
 ]
 
 # Prompts aus Dateien laden (2-Pass-System)
@@ -83,8 +82,8 @@ def get_models():
 
 
 def parse_sections(text):
-    """Extrahiert die 7 Abschnitte aus dem Antworttext."""
-    sections = [""] * 7  # 7 Abschnitte
+    """Extrahiert die 6 Abschnitte aus dem Antworttext."""
+    sections = [""] * 6  # 6 Abschnitte
 
     # Muster fuer Abschnitts-Ueberschriften (flexibel)
     patterns = [
@@ -94,7 +93,6 @@ def parse_sections(text):
         r"(?:4\.|IV\.?|4\)|\*\*4\.?\*\*|##?\s*4\.?)?\s*Behandlungsrelevante\s+Angaben",
         r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+zum\s+Zeitpunkt",
         r"(?:6\.|VI\.?|6\)|\*\*6\.?\*\*|##?\s*6\.?)?\s*Behandlungsplan\s+und\s+Prognose",
-        r"(?:7\.|VII\.?|7\)|\*\*7\.?\*\*|##?\s*7\.?)?\s*(?:Zusaetzlich|Zusätzlich)\s+erforderliche\s+Angaben",
     ]
 
     # Finde alle Abschnittspositionen
@@ -280,13 +278,16 @@ def ask_compare():
             if hasattr(f, 'stream'):
                 f.stream.seek(0)
 
+    # Sensible Inhalte redigieren
+    redacted_results = [redact_sensitive_text(result) for result in results]
+
     # DOCX erstellen (via docx_generator Modul)
     docx_output = create_comparison_docx(
-        results, MODEL_COMBINATIONS, SECTION_HEADERS, parse_sections
+        redacted_results, MODEL_COMBINATIONS, SECTION_HEADERS, parse_sections
     )
 
     # Parsed results fuer JSON-Response
-    parsed_results = [parse_sections(result) for result in results]
+    parsed_results = [parse_sections(result) for result in redacted_results]
 
     # Modellnamen fuer Frontend
     model_names = [
@@ -301,7 +302,7 @@ def ask_compare():
         "docx_base64": docx_base64,
         "sections": SECTION_HEADERS,
         "models": model_names,
-        "results": parsed_results  # [[7 sections], [7 sections], [7 sections], [7 sections]]
+        "results": parsed_results  # [[6 sections], [6 sections], [6 sections], [6 sections]]
     })
 
 

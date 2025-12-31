@@ -1,9 +1,137 @@
 # app/docx_generator.py
-"""DOCX-Generierung für Psychotherapie-Berichte."""
+"""DOCX-Generierung fuer Psychotherapie-Berichte."""
 
 import io
+import os
+import re
 from docx import Document
 from docx.shared import Pt, Cm
+from docx.oxml import OxmlElement
+from docx.text.paragraph import Paragraph
+
+TEMPLATE_FILENAME = "report_template.docx"
+
+SUBHEADINGS = {
+    "Symptomatik",
+    "Psychischer Befund",
+    "Krankheitsverständnis der Patientin",
+    "Ergebnisse psychodiagnostischer Testverfahren",
+    "Aktuelle psychopharmakologische Medikation",
+    "Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen",
+    "Funktionales Modell:",
+    "Differenzialdiagnostische Angaben",
+    "Therapieziele  (mit der Patientin vereinbart)",
+    "Individueller Behandlungsplan",
+    "Begründung des Settings, Sitzungszahl, Frequenz",
+    "Prognose",
+}
+
+SENSITIVE_PATTERNS = [
+    (re.compile(r"\b(Frau|Herr)\s+[A-ZÄÖÜ][a-zäöüß-]+"), r"\1 [Anonymisiert]"),
+    (re.compile(r"\b(Frau|Herr)\s+[A-Z]\."), r"\1 [Anonymisiert]"),
+    (re.compile(r"\b(Name|Vorname|Nachname|Geburtsname|Ort|Wohnort|Geburtsort|Adresse|Straße|Strasse|Stadt|PLZ)\b\s*[:\-]\s*[^\n]+"), r"\1: [Anonymisiert]"),
+    (re.compile(r"\b[A-ZÄÖÜ]\.\s*[A-ZÄÖÜ]\.\b"), "[Anonymisiert]"),
+    (re.compile(r"\b(in|aus|bei|nach|von|im|am)\s+[A-ZÄÖÜ][a-zäöüß-]+"), r"\1 [Anonymisiert]"),
+]
+
+
+def redact_sensitive_text(text):
+    """Reduziert potenzielle Namen/Orte auf [Anonymisiert]."""
+    if not text:
+        return text
+
+    redacted = text
+    for pattern, repl in SENSITIVE_PATTERNS:
+        redacted = pattern.sub(repl, redacted)
+    return redacted
+
+
+def _insert_paragraph_after(paragraph, text, style=None):
+    new_p = OxmlElement("w:p")
+    paragraph._p.addnext(new_p)
+    new_para = Paragraph(new_p, paragraph._parent)
+    if text:
+        new_para.add_run(text)
+    if style:
+        new_para.style = style
+    return new_para
+
+
+def _replace_placeholder_with_text(doc, placeholder, text):
+    for paragraph in doc.paragraphs:
+        if paragraph.text.strip() == placeholder:
+            anchor = paragraph
+            lines = [ln.rstrip() for ln in (text or "").splitlines()]
+            while lines and not lines[0].strip():
+                lines.pop(0)
+            while lines and not lines[-1].strip():
+                lines.pop()
+
+            if not lines:
+                _insert_paragraph_after(anchor, "[Angabe fehlt]")
+            else:
+                for line in lines:
+                    cleaned = line.strip()
+                    if not cleaned:
+                        _insert_paragraph_after(anchor, "")
+                        continue
+                    style = "Heading 2" if cleaned in SUBHEADINGS else "Normal"
+                    _insert_paragraph_after(anchor, cleaned, style=style)
+
+            anchor._p.getparent().remove(anchor._p)
+            return
+
+
+def _remove_leading_heading(text, heading):
+    if not text or not heading:
+        return text
+
+    lines = [ln.rstrip() for ln in text.splitlines()]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    if lines and lines[0].strip() == heading:
+        lines = lines[1:]
+    return "\n".join(lines)
+
+
+def ensure_report_template(template_path):
+    """Erstellt das DOCX-Template, falls es nicht existiert."""
+    if os.path.exists(template_path):
+        return
+
+    os.makedirs(os.path.dirname(template_path), exist_ok=True)
+    doc = Document()
+
+    doc.add_paragraph("Bericht an den Gutachter", style="Title")
+
+    doc.add_paragraph("1. Relevante soziodemographische Daten", style="Heading 1")
+    doc.add_paragraph("{{SECTION_1}}")
+
+    doc.add_paragraph("2. Symptomatik und psychischer Befund", style="Heading 1")
+    doc.add_paragraph("{{SECTION_2}}")
+
+    doc.add_paragraph("3. Somatischer Befund / Konsiliarbericht", style="Heading 1")
+    doc.add_paragraph("{{SECTION_3}}")
+
+    doc.add_paragraph(
+        "4. Behandlungsrelevante Angaben zur Lebensgeschichte, "
+        "Krankheitsanamnese, funktionales Bedingungsmodell (VT)",
+        style="Heading 1",
+    )
+    doc.add_paragraph("{{SECTION_4}}")
+
+    doc.add_paragraph("5. Diagnose zum Zeitpunkt der Antragsstellung", style="Heading 1")
+    doc.add_paragraph("{{SECTION_5}}")
+
+    doc.add_paragraph("6. Behandlungsplan und Prognose", style="Heading 1")
+    doc.add_paragraph("{{SECTION_6}}")
+
+    for paragraph in doc.paragraphs:
+        if paragraph.style.name == "Normal":
+            for run in paragraph.runs:
+                run.font.size = Pt(11)
+
+    doc.save(template_path)
 
 
 def create_comparison_docx(results, model_combinations, section_headers, parse_sections_func):
@@ -12,7 +140,7 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     Args:
         results: Liste mit 4 Ergebnis-Strings (einer pro Modellkombination)
         model_combinations: Liste der Modellkombinationen [{"pass1": ..., "pass2": ...}, ...]
-        section_headers: Liste der Abschnitts-Überschriften
+        section_headers: Liste der Abschnitts-Ueberschriften
         parse_sections_func: Funktion zum Parsen der Abschnitte aus dem Text
 
     Returns:
@@ -20,9 +148,9 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     """
     doc = Document()
 
-    # Tabelle: 8 Zeilen x 6 Spalten (1 Ueberschrift + 4 Kombis + 1 Leer)
-    table = doc.add_table(rows=8, cols=6)
-    table.style = 'Table Grid'
+    # Tabelle: Header + Abschnittszeilen, 6 Spalten (1 Ueberschrift + 4 Kombis + 1 Leer)
+    table = doc.add_table(rows=len(section_headers) + 1, cols=6)
+    table.style = "Table Grid"
 
     # Spaltenbreiten setzen
     for row in table.rows:
@@ -45,17 +173,18 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     # Extrahiere Abschnitte aus jedem Ergebnis
     parsed_results = [parse_sections_func(result) for result in results]
 
-    # Fuelle die Tabelle (Zeilen 2-8 = Index 1-7)
-    for row_idx in range(1, 8):
-        section_idx = row_idx - 1  # 0-6
+    # Fuelle die Tabelle (Zeilen 2..n)
+    for row_idx in range(1, len(section_headers) + 1):
+        section_idx = row_idx - 1
         row = table.rows[row_idx]
 
-        # Spalte 1: Ueberschrift (section_headers hat Index 0-6)
+        # Spalte 1: Ueberschrift
         row.cells[0].text = section_headers[section_idx]
 
         # Spalten 2-5: Ergebnisse (4 Kombinationen)
         for combo_idx in range(4):
-            row.cells[combo_idx + 1].text = parsed_results[combo_idx][section_idx]
+            cell_text = parsed_results[combo_idx][section_idx]
+            row.cells[combo_idx + 1].text = redact_sensitive_text(cell_text)
 
         # Spalte 6: leer
         row.cells[5].text = ""
@@ -79,26 +208,22 @@ def create_flowing_text_docx(sections, selected_texts):
     """Erstellt eine DOCX-Datei mit Fliesstext aus ausgewaehlten Abschnitten.
 
     Args:
-        sections: Liste der Abschnitts-Überschriften
-        selected_texts: Liste der ausgewählten Texte (einer pro Abschnitt)
+        sections: Liste der Abschnitts-Ueberschriften
+        selected_texts: Liste der ausgewaehlten Texte (einer pro Abschnitt)
 
     Returns:
         BytesIO mit dem DOCX-Dokument
     """
-    doc = Document()
+    template_path = os.path.join(os.path.dirname(__file__), "templates", TEMPLATE_FILENAME)
+    ensure_report_template(template_path)
+    doc = Document(template_path)
 
-    for i, section_header in enumerate(sections):
-        # Ueberschrift hinzufuegen
-        doc.add_heading(section_header, level=2)
-
-        # Ausgewaehlten Text hinzufuegen
-        if i < len(selected_texts) and selected_texts[i]:
-            doc.add_paragraph(selected_texts[i])
-        else:
-            doc.add_paragraph("")
-
-        # Abstand nach jedem Abschnitt
-        doc.add_paragraph("")
+    for idx, section_text in enumerate(selected_texts, 1):
+        placeholder = f"{{{{SECTION_{idx}}}}}"
+        safe_text = redact_sensitive_text(section_text)
+        heading = sections[idx - 1] if idx - 1 < len(sections) else None
+        safe_text = _remove_leading_heading(safe_text, heading)
+        _replace_placeholder_with_text(doc, placeholder, safe_text)
 
     # In BytesIO speichern
     output = io.BytesIO()
