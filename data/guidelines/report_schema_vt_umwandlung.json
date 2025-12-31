@@ -1,0 +1,139 @@
+{
+  "schema_name": "report_schema_vt_umwandlung",
+  "doc_type": "ptv3_umwandlungsbericht_vt",
+  "version": "1.0",
+  "language": "de",
+  "missing_value_token": "[Angabe fehlt]",
+  "rules": {
+    "headings_must_match_exactly": true,
+    "no_additional_sections_allowed": true,
+    "content_source_restriction": "Pass1_only",
+    "style": "sachlich, gutachterlich, neutral"
+  },
+  "sections": [
+    {
+      "id": "1",
+      "title": "Relevante soziodemographische Daten",
+      "required": true,
+      "subsections": [
+        {
+          "id": "1.1",
+          "title": "Alter, Familienstand, Beruf, aktuelle Lebenssituation",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "Symptomatik und psychischer Befund",
+      "required": true,
+      "subsections": [
+        {
+          "id": "2.1",
+          "title": "Von der Patientin oder dem Patienten geschilderte Symptomatik mit Angaben zu Schweregrad und Verlauf",
+          "required": true
+        },
+        {
+          "id": "2.2",
+          "title": "Auffälligkeiten bei Kontaktaufnahme, Interaktion und Erscheinungsbild",
+          "required": true
+        },
+        {
+          "id": "2.3",
+          "title": "Psychischer Befund",
+          "required": true
+        },
+        {
+          "id": "2.4",
+          "title": "Krankheitsverständnis der Patientin oder des Patienten",
+          "required": true
+        },
+        {
+          "id": "2.5",
+          "title": "Ergebnisse psychodiagnostischer Testverfahren",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Somatischer Befund",
+      "required": true,
+      "subsections": [
+        {
+          "id": "3.1",
+          "title": "Relevante somatische Befunde und Erkrankungen",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "title": "Lebensgeschichte und psychodynamische bzw. verhaltenstherapeutische Zusammenhänge",
+      "required": true,
+      "subsections": [
+        {
+          "id": "4.1",
+          "title": "Biographische Anamnese",
+          "required": true
+        },
+        {
+          "id": "4.2",
+          "title": "Bedingungsmodell (verhaltenstherapeutisches Störungsmodell)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "Diagnose",
+      "required": true,
+      "subsections": [
+        {
+          "id": "5.1",
+          "title": "Diagnose nach ICD-10",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "title": "Bisheriger Therapieverlauf",
+      "required": true,
+      "subsections": [
+        {
+          "id": "6.1",
+          "title": "Bisher durchgeführte therapeutische Maßnahmen",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "title": "Behandlungsplan, Prognose und Begründung der Umwandlung",
+      "required": true,
+      "subsections": [
+        {
+          "id": "7.1",
+          "title": "Therapieziele",
+          "required": true
+        },
+        {
+          "id": "7.2",
+          "title": "Geplante therapeutische Interventionen",
+          "required": true
+        },
+        {
+          "id": "7.3",
+          "title": "Prognose",
+          "required": true
+        },
+        {
+          "id": "7.4",
+          "title": "Begründung der Umwandlung",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

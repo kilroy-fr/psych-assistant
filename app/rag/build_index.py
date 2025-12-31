@@ -15,8 +15,8 @@ from llama_index.embeddings.ollama import OllamaEmbedding
 logger = logging.getLogger(__name__)
 
 # Pfade ggf. an dein Projekt anpassen
-DATA_DIR = "/app/data/guidelines"  # hier liegen deine Quell-Dokumente
-PERSIST_DIR = "/app/storage"       # hier wird der Index gespeichert
+DATA_DIR = "/app/data/data/guidelines"  # hier liegen deine Quell-Dokumente (gemountetes Volume)
+PERSIST_DIR = "/app/storage"            # hier wird der Index gespeichert
 
 # Ollama-Host aus Umgebungsvariable, Default: Service-Name im Docker-Netz
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
@@ -39,11 +39,11 @@ DOCUMENT_METADATA = {
         "doc_type": "stilvorlage",
         "description": "Musterdokument für Schreibstil und Tonalität"
     },
-    "guidelines_vt.json": {
+    "report_schema_vt_umwandlung.json": {
         "role": "struktur_leitfaden",
         "source": "PTV3",
         "doc_type": "struktur",
-        "description": "PTV-3 Strukturvorgaben für VT-Berichte (Aufbau/Gliederung)"
+        "description": "PTV-3 Strukturvorgaben für VT-Umwandlungsberichte (verbindliche Gliederung)"
     },
     "checkliste_vt_beihilfe.json": {
         "role": "qualitaets_checkliste",

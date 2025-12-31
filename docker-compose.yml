@@ -2,29 +2,25 @@ services:
   psych-assistant:
     build: .
     container_name: psych-assistant
+    expose:
+      - "5000"
     ports:
-      - "5005:5000"
+      - "127.0.0.1:5005:5000"  # Direkter Zugriff für Entwicklung
     environment:
-      - OLLAMA_HOST=http://ollama:11434   # <--- WICHTIG: kein 172.x mehr
+      - OLLAMA_HOST=http://ollama:11434
     networks:
       - ollama-net
+      - caddy-proxy-network
     volumes:
       - ./data:/app/data/data
       - ./storage:/app/storage
     restart: unless-stopped
-  caddy:
-    image: caddy:2
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./caddy:/etc/caddy:ro
-      - ./certs:/certs:ro
-    depends_on:
-      - psych-assistant
-    networks:
-      - ollama-net
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
 networks:
   ollama-net:
     external: true
+  caddy-proxy-network:
+    external: true
+    name: caddy-proxy-network

@@ -8,9 +8,9 @@ Das RAG-System verwendet jetzt eine rollenbasierte Dokumententrennung, um versch
 
 ### 1. Struktur-Leitfaden (`role=struktur_leitfaden`)
 
-**Datei:** `guidelines_vt.json`
+**Datei:** `report_schema_vt_umwandlung.json`
 **Quelle:** `PTV3`
-**Zweck:** Definiert die **verbindliche Gliederung und Struktur** für Berichte
+**Zweck:** Definiert die **verbindliche Gliederung und Struktur** für VT-Umwandlungsberichte
 
 **Verwendung im Prompt:**
 ```
@@ -56,11 +56,11 @@ Jedes Dokument erhält beim Indexieren folgende Metadaten:
 
 ```python
 DOCUMENT_METADATA = {
-    "guidelines_vt.json": {
+    "report_schema_vt_umwandlung.json": {
         "role": "struktur_leitfaden",
         "source": "PTV3",
         "doc_type": "struktur",
-        "description": "PTV-3 Strukturvorgaben für VT-Berichte"
+        "description": "PTV-3 Strukturvorgaben für VT-Umwandlungsberichte"
     },
     "checkliste_vt_beihilfe.json": {
         "role": "qualitaets_checkliste",

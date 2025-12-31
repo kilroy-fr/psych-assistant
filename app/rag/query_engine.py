@@ -3,13 +3,11 @@ import tempfile
 import logging
 import requests
 
-from llama_index.core import VectorStoreIndex, Settings
+from llama_index.core import VectorStoreIndex, Settings, SimpleDirectoryReader
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.ollama import OllamaEmbedding
 from typing import Optional
 from werkzeug.utils import secure_filename
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
-import httpx
 
 from .build_index import build_index
 
@@ -126,12 +124,6 @@ def answer_question(
             llm_kwargs["request_timeout"] = 1200.0  # 20 Minuten für Pass 2 mit langem Context
             logger.info(f"Setze Temperatur auf 0.1 und Timeout auf 1200s für Pass 2 (Berichtsformulierung)")
 
-        # Kontextgrößen-Beschränkungen entfernt - lasse Modelle ihre volle Kapazität nutzen
-        # if any(name in model_name.lower() for name in ['llama3.2', 'llama3.1', 'gemma3:4b', 'gemma2:9b']):
-        #     llm_kwargs["context_window"] = 4096
-        #     llm_kwargs["request_timeout"] = 180.0
-        #     logger.info(f"Begrenze Kontextgröße auf 4096 und Timeout auf 180s für {model_name}")
-
         llm = Ollama(**llm_kwargs)
     else:
         llm = Settings.llm
@@ -190,8 +182,8 @@ def answer_question(
             resp.raise_for_status()
             result = resp.json()
             return result.get("response", "").strip()
-        except httpx.ReadTimeout:
-            return ("⏱️ Die Anfrage hat zu lange gedauert (Timeout nach 3 Minuten).\n\n"
+        except requests.exceptions.Timeout:
+            return ("⏱️ Die Anfrage hat zu lange gedauert (Timeout nach 20 Minuten).\n\n"
                     "Empfehlung: Verwenden Sie ein größeres/schnelleres Modell für Pass 2.")
         except Exception as e:
             logger.error(f"Error in direct LLM call: {e}")
