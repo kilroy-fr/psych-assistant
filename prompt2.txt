@@ -7,7 +7,7 @@ GRUNDLAGE:
 - Verwende ausschliesslich die Zuordnungen aus PASS 1.
 - Keine Hinzufuegungen, keine Ableitungen, keine Interpretationen ueber PASS 1 hinaus.
 - Fehlende Inhalte bleiben exakt "[Angabe fehlt]".
-- Keine Namen, Vornamen oder Ortsnamen. Wenn in PASS 1 vorhanden, ersetze mit [Anonymisiert].
+- Keine Namen, Vornamen oder Ortsnamen. Wenn in PASS 1 vorhanden, ersetze Personen mit "Frau X." oder "Herr X." und Orte mit "F.".
 
 FORMATVORGABEN (zwingend):
 - KEIN Markdown.

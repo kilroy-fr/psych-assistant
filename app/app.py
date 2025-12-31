@@ -7,7 +7,7 @@ import logging
 import requests
 from flask import Flask, render_template, request, jsonify, send_file
 from app.rag.query_engine import answer_question
-from app.docx_generator import create_comparison_docx, create_flowing_text_docx, redact_sensitive_text
+from app.docx_generator import create_comparison_docx, create_flowing_text_docx, sanitize_sensitive_text
 
 app = Flask(__name__)
 
@@ -278,16 +278,15 @@ def ask_compare():
             if hasattr(f, 'stream'):
                 f.stream.seek(0)
 
-    # Sensible Inhalte redigieren
-    redacted_results = [redact_sensitive_text(result) for result in results]
+    sanitized_results = [sanitize_sensitive_text(result) for result in results]
 
     # DOCX erstellen (via docx_generator Modul)
     docx_output = create_comparison_docx(
-        redacted_results, MODEL_COMBINATIONS, SECTION_HEADERS, parse_sections
+        sanitized_results, MODEL_COMBINATIONS, SECTION_HEADERS, parse_sections
     )
 
     # Parsed results fuer JSON-Response
-    parsed_results = [parse_sections(result) for result in redacted_results]
+    parsed_results = [parse_sections(result) for result in sanitized_results]
 
     # Modellnamen fuer Frontend
     model_names = [

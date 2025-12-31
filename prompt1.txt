@@ -7,7 +7,7 @@ WICHTIG:
 - Gib nur eine strukturierte Zuordnung aus, exakt in der Reihenfolge der Struktur.
 - Kein Markdown, keine Listenpunkte, keine Sonderzeichen am Zeilenanfang.
 - Nur Klartext.
-- Keine Namen, Vornamen oder Ortsnamen. Wenn in den Daten vorhanden, ersetze mit [Anonymisiert].
+- Keine Namen, Vornamen oder Ortsnamen. Wenn in den Daten vorhanden, ersetze Personen mit "Frau X." oder "Herr X." und Orte mit "F.".
 
 DOKUMENTEN-ROLLEN:
 1. STRUKTUR-LEITFADEN (role=struktur_leitfaden, source=PTV3):

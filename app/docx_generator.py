@@ -27,23 +27,25 @@ SUBHEADINGS = {
 }
 
 SENSITIVE_PATTERNS = [
-    (re.compile(r"\b(Frau|Herr)\s+[A-ZÄÖÜ][a-zäöüß-]+"), r"\1 [Anonymisiert]"),
-    (re.compile(r"\b(Frau|Herr)\s+[A-Z]\."), r"\1 [Anonymisiert]"),
-    (re.compile(r"\b(Name|Vorname|Nachname|Geburtsname|Ort|Wohnort|Geburtsort|Adresse|Straße|Strasse|Stadt|PLZ)\b\s*[:\-]\s*[^\n]+"), r"\1: [Anonymisiert]"),
-    (re.compile(r"\b[A-ZÄÖÜ]\.\s*[A-ZÄÖÜ]\.\b"), "[Anonymisiert]"),
-    (re.compile(r"\b(in|aus|bei|nach|von|im|am)\s+[A-ZÄÖÜ][a-zäöüß-]+"), r"\1 [Anonymisiert]"),
+    (re.compile(r"\[Anonymisiert\]"), "X."),
+    (re.compile(r"\b(Frau|Herr)\s+[A-ZÄÖÜ][a-zäöüß-]+"), r"\1 X."),
+    (re.compile(r"\b(Frau|Herr)\s+[A-ZÄÖÜ]\."), r"\1 X."),
+    (re.compile(r"\b(Name|Vorname|Nachname|Geburtsname)\b\s*[:\-]\s*[^\n]+"), r"\1: X."),
+    (re.compile(r"\b(Ort|Wohnort|Geburtsort|Adresse|Straße|Strasse|Stadt|PLZ)\b\s*[:\-]\s*[^\n]+"), r"\1: F."),
+    (re.compile(r"\b[A-ZÄÖÜ]\.\s*[A-ZÄÖÜ]\.\b"), "X."),
+    (re.compile(r"\b(in|aus|bei|nach|von|im|am)\s+[A-ZÄÖÜ][a-zäöüß-]+"), r"\1 F."),
 ]
 
 
-def redact_sensitive_text(text):
-    """Reduziert potenzielle Namen/Orte auf [Anonymisiert]."""
+def sanitize_sensitive_text(text):
+    """Ersetzt Namen/Orte mit X. bzw. F., ohne [Anonymisiert] zu nutzen."""
     if not text:
         return text
 
-    redacted = text
+    sanitized = text
     for pattern, repl in SENSITIVE_PATTERNS:
-        redacted = pattern.sub(repl, redacted)
-    return redacted
+        sanitized = pattern.sub(repl, sanitized)
+    return sanitized
 
 
 def _insert_paragraph_after(paragraph, text, style=None):
@@ -184,7 +186,7 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
         # Spalten 2-5: Ergebnisse (4 Kombinationen)
         for combo_idx in range(4):
             cell_text = parsed_results[combo_idx][section_idx]
-            row.cells[combo_idx + 1].text = redact_sensitive_text(cell_text)
+            row.cells[combo_idx + 1].text = sanitize_sensitive_text(cell_text)
 
         # Spalte 6: leer
         row.cells[5].text = ""
@@ -220,10 +222,10 @@ def create_flowing_text_docx(sections, selected_texts):
 
     for idx, section_text in enumerate(selected_texts, 1):
         placeholder = f"{{{{SECTION_{idx}}}}}"
-        safe_text = redact_sensitive_text(section_text)
         heading = sections[idx - 1] if idx - 1 < len(sections) else None
-        safe_text = _remove_leading_heading(safe_text, heading)
-        _replace_placeholder_with_text(doc, placeholder, safe_text)
+        section_text = sanitize_sensitive_text(section_text)
+        section_text = _remove_leading_heading(section_text, heading)
+        _replace_placeholder_with_text(doc, placeholder, section_text)
 
     # In BytesIO speichern
     output = io.BytesIO()
