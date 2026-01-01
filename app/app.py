@@ -25,23 +25,23 @@ file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
 debug_logger.addHandler(file_handler)
 
-# Feste Modellkombinationen
-# Reihenfolge optimiert: Kombination 3 und 4 teilen sich Pass1 (qwen3:14b)
+# Feste Modellkombinationen (3 Kombinationen)
+# Optimiert: Kombinationen 2 und 3 teilen sich Pass1 (qwen3:14b)
 MODEL_COMBINATIONS = [
-    {"pass1": "qwen2.5:14b", "pass2": "gpt-oss:20b"},       # Kombi 1
-    {"pass1": "qwen2.5:14b", "pass2": "deepseek-r1:14b"},   # Kombi 2 (nutzt Pass1 von Kombi 1)
-    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 3
-    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 4 (nutzt Pass1 von Kombi 3)
+    {"pass1": "qwen2.5:14b", "pass2": "deepseek-r1:14b"},   # Kombi 1
+    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 2
+    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 3 (nutzt Pass1 von Kombi 2)
 ]
 
-# Abschnitts-Ueberschriften (6 Abschnitte, Abschnitt 7 entfaellt)
+# Abschnitts-Ueberschriften (4 Abschnitte - Abschnitte 4 und 6 werden separat erstellt)
+# Abschnitt 4 (Lebensgeschichte/Bedingungsmodell) und 6 (Behandlungsplan/Prognose) sind zu komplex
 SECTION_HEADERS = [
-    "Relevante soziodemographische Daten",
-    "Symptomatik und psychischer Befund",
-    "Somatischer Befund / Konsiliarbericht",
-    "Behandlungsrelevante Angaben zur Lebensgeschichte, Krankheitsanamnese, funktionales Bedingungsmodell (VT)",
-    "Diagnose zum Zeitpunkt der Antragsstellung",
-    "Behandlungsplan und Prognose",
+    "Relevante soziodemographische Daten",           # 1
+    "Symptomatik und psychischer Befund",            # 2
+    "Somatischer Befund",                            # 3
+    "Diagnose nach ICD-10",                          # 5 (im Schema)
+    # Abschnitt 4: Lebensgeschichte/Bedingungsmodell (mit SORC-Schema) - SEPARAT
+    # Abschnitt 6: Behandlungsplan und Prognose - SEPARAT
 ]
 
 # Prompts aus Dateien laden (2-Pass-System)
@@ -82,17 +82,16 @@ def get_models():
 
 
 def parse_sections(text):
-    """Extrahiert die 6 Abschnitte aus dem Antworttext."""
-    sections = [""] * 6  # 6 Abschnitte
+    """Extrahiert die 4 Abschnitte aus dem Antworttext (ohne Abschnitt 4 und 6)."""
+    sections = [""] * 4  # 4 Abschnitte
 
     # Muster fuer Abschnitts-Ueberschriften (flexibel)
+    # Abschnitt 4 (Lebensgeschichte/SORC) und 6 (Behandlungsplan/Prognose) werden separat erstellt
     patterns = [
         r"(?:1\.|I\.?|1\)|\*\*1\.?\*\*|##?\s*1\.?)?\s*(?:Relevante\s+)?soziodemographische\s+Daten",
         r"(?:2\.|II\.?|2\)|\*\*2\.?\*\*|##?\s*2\.?)?\s*Symptomatik\s+und\s+psychischer\s+Befund",
         r"(?:3\.|III\.?|3\)|\*\*3\.?\*\*|##?\s*3\.?)?\s*Somatischer\s+Befund",
-        r"(?:4\.|IV\.?|4\)|\*\*4\.?\*\*|##?\s*4\.?)?\s*Behandlungsrelevante\s+Angaben",
-        r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+zum\s+Zeitpunkt",
-        r"(?:6\.|VI\.?|6\)|\*\*6\.?\*\*|##?\s*6\.?)?\s*Behandlungsplan\s+und\s+Prognose",
+        r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+nach\s+ICD",  # Abschnitt 5 im Schema
     ]
 
     # Finde alle Abschnittspositionen
@@ -250,7 +249,7 @@ def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, 
 
 @app.route("/ask-compare", methods=["POST"])
 def ask_compare():
-    """Fuehrt alle 4 Modellkombinationen aus und gibt DOCX und JSON zurueck."""
+    """Fuehrt alle 3 Modellkombinationen aus und gibt DOCX und JSON zurueck."""
     question = "Analysiere die hochgeladenen Patientendaten."
     uploaded_files = request.files.getlist("files")
     paste_text = request.form.get("paste_text", "").strip()

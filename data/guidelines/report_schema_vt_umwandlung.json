@@ -64,7 +64,12 @@
           "id": "3.1",
           "title": "Relevante somatische Befunde und Erkrankungen",
           "required": true
-        }
+        },
+        {
+          "id": "3.2",
+          "title": "aktuelle psychopharmakologische Medikation",
+          "required": true
+        }        
       ]
     },
     {
@@ -74,63 +79,39 @@
       "subsections": [
         {
           "id": "4.1",
-          "title": "Biographische Anamnese",
+          "title": "Biographische Anamnese und Krankheitsanamnese",
           "required": true
         },
         {
           "id": "4.2",
-          "title": "Bedingungsmodell (verhaltenstherapeutisches Störungsmodell)",
+          "title": "Bedingungsmodell (verhaltenstherapeutisches Störungsmodell) nach dem S-O-R-C-Schema",
           "required": true
         }
       ]
     },
     {
       "id": "5",
-      "title": "Diagnose",
-      "required": true,
-      "subsections": [
-        {
-          "id": "5.1",
-          "title": "Diagnose nach ICD-10",
-          "required": true
-        }
-      ]
+      "title": "Diagnose nach ICD-10",
+      "required": true
     },
     {
       "id": "6",
-      "title": "Bisheriger Therapieverlauf",
+      "title": "Behandlungsplan und Prognose",
       "required": true,
       "subsections": [
         {
           "id": "6.1",
-          "title": "Bisher durchgeführte therapeutische Maßnahmen",
-          "required": true
-        }
-      ]
-    },
-    {
-      "id": "7",
-      "title": "Behandlungsplan, Prognose und Begründung der Umwandlung",
-      "required": true,
-      "subsections": [
-        {
-          "id": "7.1",
-          "title": "Therapieziele",
+          "title": "Therapieziele (mit der Patientin vereinbart)",
           "required": true
         },
         {
-          "id": "7.2",
-          "title": "Geplante therapeutische Interventionen",
+          "id": "6.2",
+          "title": "Individueller Behandlungsplan ",
           "required": true
-        },
-        {
-          "id": "7.3",
+        },        
+       {
+          "id": "6.3",
           "title": "Prognose",
-          "required": true
-        },
-        {
-          "id": "7.4",
-          "title": "Begründung der Umwandlung",
           "required": true
         }
       ]
