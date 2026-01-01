@@ -70,6 +70,11 @@
           "id": "3.2",
           "title": "aktuelle psychopharmakologische Medikation",
           "required": true
+        },
+        {
+          "id": "3.3",
+          "title": "Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen",
+          "required": true
         }        
       ]
     },

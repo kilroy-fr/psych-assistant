@@ -554,7 +554,7 @@ button:hover {
   font-weight: 600;
   text-align: center;
   border-bottom: 2px solid #4b5563;
-  width: 33.33%;
+  /* Breite wird automatisch auf Basis der Anzahl Spalten verteilt */
 }
 
 #comparison-table tbody tr {

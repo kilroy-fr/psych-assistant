@@ -44,11 +44,12 @@ MODEL_COMBINATIONS_SECTION4_6 = [
 ]
 
 # Abschnitts-Ueberschriften (6 Abschnitte)
+# WICHTIG: Muessen mit report_schema_vt_umwandlung.json uebereinstimmen
 SECTION_HEADERS = [
     "Relevante soziodemographische Daten",                                      # 1
     "Symptomatik und psychischer Befund",                                       # 2
     "Somatischer Befund",                                                       # 3
-    "Behandlungsrelevante Angaben zur Lebensgeschichte, Krankheitsanamnese, funktionales Bedingungsmodell (VT)",  # 4
+    "Lebensgeschichte und psychodynamische bzw. verhaltenstherapeutische Zusammenhänge",  # 4
     "Diagnose nach ICD-10",                                                     # 5
     "Behandlungsplan und Prognose",                                             # 6
 ]
@@ -103,12 +104,12 @@ def parse_sections(text):
     sections = [""] * 6  # 6 Abschnitte
 
     # Muster fuer Abschnitts-Ueberschriften (flexibel)
-    # WICHTIG: Abschnitt 5 muss "Diagnose nach ICD" erkennen (nicht "zum Zeitpunkt der Antragsstellung")
+    # WICHTIG: Muss mit report_schema_vt_umwandlung.json und den Prompts uebereinstimmen
     patterns = [
         r"(?:1\.|I\.?|1\)|\*\*1\.?\*\*|##?\s*1\.?)?\s*(?:Relevante\s+)?soziodemographische\s+Daten",
         r"(?:2\.|II\.?|2\)|\*\*2\.?\*\*|##?\s*2\.?)?\s*Symptomatik\s+und\s+psychischer\s+Befund",
         r"(?:3\.|III\.?|3\)|\*\*3\.?\*\*|##?\s*3\.?)?\s*Somatischer\s+Befund",
-        r"(?:4\.|IV\.?|4\)|\*\*4\.?\*\*|##?\s*4\.?)?\s*Behandlungsrelevante\s+Angaben\s+zur\s+Lebensgeschichte",  # Abschnitt 4
+        r"(?:4\.|IV\.?|4\)|\*\*4\.?\*\*|##?\s*4\.?)?\s*Lebensgeschichte\s+und\s+(?:psychodynamische|verhaltenstherapeutische)",  # Abschnitt 4
         r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+nach\s+ICD(?:-10)?",  # Abschnitt 5 (mit optionalem "-10")
         r"(?:6\.|VI\.?|6\)|\*\*6\.?\*\*|##?\s*6\.?)?\s*Behandlungsplan\s+und\s+Prognose",  # Abschnitt 6
     ]

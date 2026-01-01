@@ -9,10 +9,17 @@ GRUNDLAGE:
 - Fehlende Inhalte bleiben exakt "[Angabe fehlt]".
 - Keine Namen, Vornamen oder Ortsnamen. Wenn in PASS 1 vorhanden, ersetze Personen mit "Frau X." oder "Herr X." und Orte mit "F.".
 
+KRITISCHE REGEL FUER ABSCHNITT 5 (Diagnose nach ICD-10):
+- Abschnitt 5 ist OBLIGATORISCH und MUSS vollstaendig aus PASS 1 uebernommen werden!
+- Uebernimm ALLE ICD-10 Diagnosen aus PASS 1 in diesen Abschnitt.
+- Jede Diagnose: Vollstaendiger ICD-Code + offizielle Bezeichnung (z.B. "F32.1 Mittelgradige depressive Episode")
+- Haupt- und Nebendiagnosen-Kennzeichnung beibehalten.
+- Differenzialdiagnostik aus PASS 1 uebernehmen.
+- KEINE neuen Diagnosen erfinden, NUR aus PASS 1 kopieren!
+
 FORMATVORGABEN (zwingend):
 - KEIN Markdown.
-- Keine Listenpunkte, ausser nummerierte Zeilen unter "Therapieziele  (mit der Patientin vereinbart)".
-- Keine Sonderzeichen am Zeilenanfang (ausser "S .", "O", "R", "C" im Funktionalen Modell).
+- Keine Listenpunkte; Ausnahme: nummerierte Zeilen nur unter "Therapieziele (mit der Patientin vereinbart)" und nur, wenn Pass 1 Ziele liefert. Reihenfolge der Ziele aus Pass 1 beibehalten, keine neuen Ziele hinzufuegen.
 - Reiner Fliesstext mit Zeilenumbruechen.
 - Jede Ueberschrift und jeder Unterpunkt EXAKT wie vorgegeben.
 - Reihenfolge unveraendert.
@@ -26,20 +33,21 @@ Bericht an den Gutachter
 2. Symptomatik und psychischer Befund
 Symptomatik
 Psychopathologischer Befund
-Krankheitsverständnis der Patientin
+Krankheitsverstaendnis der Patientin
 Ergebnisse psychodiagnostischer Testverfahren
 
-3. Somatischer Befund / Konsiliarbericht
+3. Somatischer Befund
+Relevante somatische Befunde und Erkrankungen
 Aktuelle psychopharmakologische Medikation
 Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen
 
 5. Diagnose nach ICD-10
+[Hier ALLE Diagnosen aus PASS 1 einsetzen - siehe KRITISCHE REGEL oben!]
 
 QUALITAETSREGELN:
 - Vollstaendige Wiedergabe aller Inhalte aus PASS 1.
 - KEIN Satz darf Informationen enthalten, die nicht in PASS 1 stehen.
 - Stil: medizinisch-sachlich, professionell, neutral.
-- Funktionales Modell im S-O-R-C-Format mit eigenen Zeilen, beginnend mit "S .", "O", "R", "C".
 - PSYCHOPATHOLOGISCHER BEFUND: Klar strukturiert darstellen, alle relevanten Befundbereiche abdecken (siehe Struktur).
 
 JETZT AUSGABE DES FERTIGEN BERICHTS (PASS 2) BEGINNEN.

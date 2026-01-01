@@ -18,9 +18,9 @@ FORMATVORGABEN:
 - Jede C-Komponente in einer eigenen Zeile.
 - Keine Zusammenfassung der Konsequenzen.
 
-ABSCHNITT 4 – STRUKTUR (unveraendert):
+ABSCHNITT 4 - STRUKTUR (unveraendert):
 
-4. Behandlungsrelevante Angaben zur Lebensgeschichte, Krankheitsanamnese, funktionales Bedingungsmodell (VT)
+4. Lebensgeschichte und psychodynamische bzw. verhaltenstherapeutische Zusammenhaenge
 
 4.1 Biographische Anamnese und Krankheitsanamnese
 
@@ -35,7 +35,7 @@ WICHTIG FUER 4.1:
 
 KRITISCH - EINMALIGE SORC-STRUKTUR:
 - Erstelle GENAU EINE vollstaendige SORC-Sequenz (nicht mehrere!).
-- Reihenfolge: S -> O -> R -> C+ -> C- -> C+/ -> C-/
+- Reihenfolge: S -> O -> R -> C+ -> C- -> C+/ -> C-/.
 - NIEMALS die SORC-Komponenten wiederholen oder mehrere SORC-Bloecke erstellen.
 - Alle Informationen aus PASS 1 werden in DIESE EINE Struktur integriert.
 

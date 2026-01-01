@@ -14,10 +14,12 @@ QUELLENREGEL:
 - Struktur: PTV-3 (hoeher priorisiert).
 - Anamnese-Leitfaden: Verwende biographische_anamnese_leitfaden.json fuer praezise, knappe Formulierung von 4.1.
 - SORC-Schema: Verwende die Definitionen aus SORC.json fuer die exakte Zuordnung der Komponenten in 4.2.
+- Checkliste (qualitaets_checkliste.json): Nur Vollstaendigkeits-Reminder, keine neuen Inhalte.
 - Inhalt: ausschliesslich Patientendaten.
-- Checkliste dient nur der Vollstaendigkeit, nicht als Inhaltsquelle.
 
-ABSCHNITT 4 – STRUKTUR (exakt so ausgeben):
+ABSCHNITT 4 - STRUKTUR (exakt so ausgeben, zuerst 4.1 dann 4.2):
+
+4. Lebensgeschichte und psychodynamische bzw. verhaltenstherapeutische Zusammenhaenge
 
 4.1 Biographische Anamnese und Krankheitsanamnese
 
@@ -40,7 +42,7 @@ C-/
 
 KRITISCH - STRUKTUR DES S-O-R-C-MODELLS:
 - Es gibt GENAU EINE SORC-Sequenz (nicht mehrere!).
-- Die Sequenz wird GENAU EINMAL durchlaufen: S -> O -> R -> C+/C-/C+//C-/
+- Die Sequenz wird GENAU EINMAL durchlaufen: S -> O -> R -> C+ -> C- -> C+/ -> C-/.
 - NICHT wiederholen fuer verschiedene Situationen oder Symptome.
 - NICHT mehrere SORC-Bloecke hintereinander.
 - Alle relevanten Informationen werden in die EINE Struktur integriert.
