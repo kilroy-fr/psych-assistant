@@ -20,6 +20,8 @@ let startTime = 0;
 let currentAbortController = null;
 let comparisonData = null;
 let selectedColumns = [];
+let eventSource = null;
+let currentSessionId = null;
 
 // ============================================
 // Panel-Management
@@ -204,6 +206,7 @@ function showSpinner() {
   overlay.style.display = "flex";
   startTime = Date.now();
   timerInterval = setInterval(updateTimer, 100);
+  resetProgressTracker();
 }
 
 function hideSpinner() {
@@ -212,6 +215,10 @@ function hideSpinner() {
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
+  }
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
   }
 }
 
@@ -225,6 +232,104 @@ function updateTimer() {
 }
 
 // ============================================
+// Fortschritts-Tracking
+// ============================================
+
+function resetProgressTracker() {
+  // Alle Kombis und Sections zurücksetzen
+  document.querySelectorAll('.progress-combo').forEach(combo => {
+    combo.classList.remove('active', 'completed');
+  });
+  document.querySelectorAll('.progress-section').forEach(section => {
+    section.classList.remove('active', 'completed');
+    section.querySelector('.section-pass').textContent = '';
+  });
+}
+
+function updateProgress(data) {
+  const comboEl = document.querySelector(`.progress-combo[data-combo="${data.combo}"]`);
+  if (!comboEl) return;
+
+  // Markiere aktuelle Kombi als aktiv
+  if (data.status === 'starting') {
+    // Entferne 'active' von allen Kombis
+    document.querySelectorAll('.progress-combo').forEach(c => {
+      if (c !== comboEl) c.classList.remove('active');
+    });
+    comboEl.classList.add('active');
+    comboEl.classList.remove('completed');
+  }
+
+  if (data.status === 'completed') {
+    comboEl.classList.remove('active');
+    comboEl.classList.add('completed');
+    // Markiere alle Sections dieser Kombi als completed
+    comboEl.querySelectorAll('.progress-section').forEach(s => {
+      s.classList.add('completed');
+      s.classList.remove('active');
+    });
+    return;
+  }
+
+  // Finde die richtige Section
+  let sectionKey = '';
+  if (data.section === '1-3, 5') {
+    sectionKey = '135';
+  } else if (data.section === '4') {
+    sectionKey = '4';
+  } else if (data.section === '6') {
+    sectionKey = '6';
+  }
+
+  if (!sectionKey) return;
+
+  const sectionEl = comboEl.querySelector(`.progress-section[data-section="${sectionKey}"]`);
+  if (!sectionEl) return;
+
+  // Entferne 'active' von allen Sections in dieser Kombi
+  comboEl.querySelectorAll('.progress-section').forEach(s => {
+    if (s !== sectionEl) s.classList.remove('active');
+  });
+
+  if (data.status === 'running') {
+    sectionEl.classList.add('active');
+    sectionEl.classList.remove('completed');
+
+    // Zeige Pass-Nummer
+    const passLabel = data.pass === 1 ? 'Pass 1' : 'Pass 2';
+    sectionEl.querySelector('.section-pass').textContent = passLabel;
+  }
+}
+
+function connectProgressStream(sessionId) {
+  if (eventSource) {
+    eventSource.close();
+  }
+
+  eventSource = new EventSource(`/progress/${sessionId}`);
+
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.status === 'done') {
+      eventSource.close();
+      eventSource = null;
+      return;
+    }
+
+    updateProgress(data);
+  };
+
+  eventSource.onerror = (error) => {
+    console.error('SSE Error:', error);
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+  };
+}
+
+// ============================================
 // Vergleichstabelle
 // ============================================
 
@@ -232,10 +337,11 @@ function renderComparisonTable(data) {
   comparisonData = data;
   selectedColumns = new Array(data.sections.length).fill(0);
 
-  document.getElementById("model-header-1").textContent = data.models[0];
-  document.getElementById("model-header-2").textContent = data.models[1];
-  document.getElementById("model-header-3").textContent = data.models[2];
-  document.getElementById("model-header-4").textContent = data.models[3];
+  // Setze Header für die Anzahl der tatsächlich vorhandenen Modelle
+  const numModels = data.models.length;
+  for (let i = 0; i < numModels; i++) {
+    document.getElementById(`model-header-${i + 1}`).textContent = data.models[i];
+  }
 
   const tbody = document.getElementById("comparison-tbody");
   tbody.innerHTML = "";
@@ -243,7 +349,7 @@ function renderComparisonTable(data) {
   data.sections.forEach((sectionHeader, rowIdx) => {
     const tr = document.createElement("tr");
 
-    for (let colIdx = 0; colIdx < 4; colIdx++) {
+    for (let colIdx = 0; colIdx < numModels; colIdx++) {
       const td = document.createElement("td");
       td.className = "comparison-cell";
       td.dataset.row = rowIdx;
@@ -325,11 +431,18 @@ document.getElementById("create-text-btn").addEventListener("click", createTextD
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
+  // Generiere neue Session-ID
+  currentSessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
   currentAbortController = new AbortController();
   showSpinner();
 
+  // Starte Progress-Stream
+  connectProgressStream(currentSessionId);
+
   try {
     const formData = new FormData(form);
+    formData.append('session_id', currentSessionId);
 
     const response = await fetch("/ask-compare", {
       method: "POST",

@@ -25,7 +25,7 @@ Bericht an den Gutachter
 
 2. Symptomatik und psychischer Befund
 Symptomatik
-Psychischer Befund
+Psychopathologischer Befund
 Krankheitsverständnis der Patientin
 Ergebnisse psychodiagnostischer Testverfahren
 
@@ -50,5 +50,6 @@ QUALITAETSREGELN:
 - KEIN Satz darf Informationen enthalten, die nicht in PASS 1 stehen.
 - Stil: medizinisch-sachlich, professionell, neutral.
 - Funktionales Modell im S-O-R-C-Format mit eigenen Zeilen, beginnend mit "S .", "O", "R", "C".
+- PSYCHOPATHOLOGISCHER BEFUND: Klar strukturiert darstellen, alle relevanten Befundbereiche abdecken (siehe Struktur).
 
 JETZT AUSGABE DES FERTIGEN BERICHTS (PASS 2) BEGINNEN.

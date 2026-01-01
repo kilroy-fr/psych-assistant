@@ -13,13 +13,18 @@ DOKUMENTEN-ROLLEN:
 1. STRUKTUR-LEITFADEN (role=struktur_leitfaden, source=PTV3):
    - Definiert ausschliesslich Aufbau und Gliederung des Berichts.
    - Hoechste Prioritaet fuer Strukturfragen.
-2. QUALITAETS-CHECKLISTE (role=qualitaets_checkliste, source=Beihilfe):
+2. BEFUND-SCHEMA (role=befund_schema, source=AMDP):
+   - Definiert die Struktur des psychopathologischen Befunds.
+   - Verwende diese Befundbereiche zur strukturierten Erfassung.
+3. QUALITAETS-CHECKLISTE (role=qualitaets_checkliste, source=Beihilfe):
    - Konkretisiert inhaltliche Anforderungen innerhalb der Struktur.
    - Nachrangig zur Struktur.
 
-ZWEI-QUELLEN-PRINZIP:
+QUELLEN-HIERARCHIE:
 1. Struktur-Leitfaden (PTV3) = verbindliche Struktur (hoechste Prioritaet).
-2. Patientendaten = einzige inhaltliche Quelle.
+2. Befund-Schema (psychopathologischer_befund.json) = Struktur fuer Abschnitt 2.3.
+3. SORC-Schema (SORC.json) = Struktur fuer Abschnitt 4.2.
+4. Patientendaten = einzige inhaltliche Quelle.
 
 VT-SPEZIFISCH:
 - Verhaltenstherapie (VT) bei Erwachsenen.
@@ -32,7 +37,7 @@ STRUKTUR (verpflichtend, exakt so ausgeben):
 
 2. Symptomatik und psychischer Befund
 Symptomatik
-Psychischer Befund
+Psychopathologischer Befund
 Krankheitsverständnis der Patientin
 Ergebnisse psychodiagnostischer Testverfahren
 
@@ -56,5 +61,6 @@ QUALITAETSREGELN:
 - Jeder Unterpunkt als kurzer, vollstaendiger Fliesstextsatz.
 - Funktionales Modell im S-O-R-C-Format mit eigenen Zeilen, beginnend mit "S .", "O", "R", "C".
 - Keine neuen Informationen, keine Ableitungen.
+- PSYCHOPATHOLOGISCHER BEFUND: Strukturiert erfassen nach Bereichen (Bewusstsein/Orientierung, Gedaechtnis, Aufmerksamkeit, formales/inhaltliches Denken, Wahrnehmung, Ich-Erleben, Affektivitaet, Antrieb, Psychomotorik, zirkadiane Besonderheiten).
 
 JETZT AUSGABE PASS 1 BEGINNEN.

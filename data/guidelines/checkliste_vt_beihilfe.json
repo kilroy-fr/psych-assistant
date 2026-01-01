@@ -39,14 +39,22 @@
     ]
   },
 
-  "3_psychischer_befund": {
-    "beschreibung": "Ergänzungspunkte zur Befunderhebung.",
+  "3_psychopathologischer_befund": {
+    "beschreibung": "Strukturierter psychopathologischer Befund.",
     "checkpunkte": [
+      "Bewusstsein und Orientierung (zeitlich, örtlich, situativ, zur Person) prüfen.",
+      "Gedächtnis (Kurz- und Langzeitgedächtnis) beurteilen.",
+      "Aufmerksamkeit und Konzentration einschätzen.",
+      "Formales Denken (Tempo, Stringenz, Umständlichkeit, Perseveration) beschreiben.",
+      "Inhaltliches Denken (Wahn, Zwangsgedanken, Grübeln, Suizidalität) erfassen.",
+      "Wahrnehmung (Halluzinationen, Illusionen, Derealisation/Depersonalisation) prüfen.",
+      "Ich-Erleben und Ich-Störungen erfassen.",
+      "Affektivität (Stimmung, Schwingungsfähigkeit, Affektdurchlässigkeit) beschreiben.",
+      "Antrieb und Psychomotorik beurteilen.",
+      "Zirkadiane Besonderheiten (Morgentief, Tagesrhythmus) erfassen.",
       "Interaktionsverhalten in der therapeutischen Beziehung beschreiben.",
       "Persönliche Merkmale und Handlungstendenzen im interpersonellen Bereich benennen.",
-      "Dysfunktionale Persönlichkeitszüge (z. B. selbstunsicher, dependent, zwanghaft) nennen.",
-      "Symptome aus Exploration und Befunderhebung zusammenfassen.",
-      "Syndrom benennen, dem die Hauptsymptome zuzuordnen sind (z. B. Angst, Depression, Zwang)."
+      "Dysfunktionale Persönlichkeitszüge (z. B. selbstunsicher, dependent, zwanghaft) nennen."
     ]
   },
 

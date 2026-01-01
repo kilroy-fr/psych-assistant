@@ -122,7 +122,6 @@ def answer_question(
         if disable_rag:  # Pass 2 ohne RAG
             llm_kwargs["temperature"] = 0.1
             llm_kwargs["request_timeout"] = 1200.0  # 20 Minuten für Pass 2 mit langem Context
-            logger.info(f"Setze Temperatur auf 0.1 und Timeout auf 1200s für Pass 2 (Berichtsformulierung)")
 
         llm = Ollama(**llm_kwargs)
     else:
@@ -130,7 +129,6 @@ def answer_question(
 
     # DIREKTER MODUS OHNE RAG (für Pass 2)
     if disable_rag:
-        logger.info(f"RAG deaktiviert - direkter LLM-Call für {model_name or DEFAULT_MODEL}")
         try:
             # Direkte Anfrage ohne RAG-Kontext
             if system_prompt:
@@ -144,7 +142,6 @@ def answer_question(
             # Context-Größe abhängig vom Modell (oder Override verwenden)
             if num_ctx_override:
                 num_ctx = num_ctx_override
-                logger.info(f"Context-Override verwendet: num_ctx={num_ctx}")
             else:
                 # Kleine Modelle (8B und kleiner) brauchen deutlich weniger Context
                 # um Speicher-Crashes zu vermeiden (siehe llama3.1:8b SIGSEGV bei num_ctx=131072)
@@ -155,13 +152,9 @@ def answer_question(
                     # Für größere Modelle (12B+) mehr Context erlauben
                     if any(size in model_lower for size in ['12b', '13b','14b', '27b', '34b', '70b']):
                         num_ctx = 12288
-                        logger.info(f"Größeres Modell erkannt ({model_name}): num_ctx={num_ctx}")
                     # Explizit kleine Modelle mit reduziertem Context
                     elif any(size in model_lower for size in ['3b', '4b', '7b', '8b', '9b']):
                         num_ctx = 8192
-                        logger.info(f"Kleines Modell erkannt ({model_name}): num_ctx={num_ctx} (reduziert für Stabilität)")
-                    else:
-                        logger.info(f"Modell {model_name}: num_ctx={num_ctx} (default)")
 
             # Temperatur (Override oder Default 0.1)
             temp = temperature if temperature is not None else 0.1
@@ -177,7 +170,7 @@ def answer_question(
                 }
             }
 
-            logger.info(f"Sending request to Ollama with num_ctx={num_ctx}")
+            logger.info(f"Pass 2: {model_name}, num_ctx={num_ctx}, temp={temp}")
             resp = requests.post(ollama_url, json=payload, timeout=1200.0)
             resp.raise_for_status()
             result = resp.json()
@@ -213,7 +206,7 @@ def answer_question(
             doc = temp_index.docstore.get_document(doc_id)
             upload_context += f"\n[Patientendaten Teil {i}]:\n{doc.text}\n"
         upload_context += "\n=== ENDE PATIENTENDATEN ===\n"
-        logger.info(f"Patientendaten geladen: {max_chunks} von insgesamt {total_chunks} Chunks (vollständig, nicht per Similarity)")
+        logger.info(f"Patientendaten: {max_chunks}/{total_chunks} Chunks geladen")
 
     # 3) Context-Größe für RAG-Modus einstellen
     # Pass 1 braucht VIEL Context, weil alle Patientendaten + Guidelines + System-Prompt geladen werden
@@ -226,27 +219,25 @@ def answer_question(
         # RIESIGE Modelle (70B): Brauchen massiv RAM/VRAM, Context stark begrenzen
         if '70b' in model_lower:
             num_ctx_rag = 8192  # Begrenzt aber nutzbar für 70B
-            logger.info(f"RAG Pass 1: SEHR GROSSES Modell ({model_name}), num_ctx={num_ctx_rag} (reduziert wegen RAM/VRAM-Limits)")
+            logger.info(f"Pass 1: SEHR GROSSES Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Mittlere Modelle (14-34B): Brauchen mehr Context für vollständige Patientendaten
         # WICHTIG: Diese müssen VOR den kleineren Modellen geprüft werden (14b enthält auch "4b"!)
         elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['14b', '20b', '27b', '34b']):
             num_ctx_rag = 49152  # 48K für mittlere Modelle - verhindert Prompt-Kürzung
-            logger.info(f"RAG Pass 1: Mittleres Modell ({model_name}), num_ctx={num_ctx_rag}")
+            logger.info(f"Pass 1: Mittleres Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Kleine-mittlere Modelle (12-13B): Guter Kompromiss
         elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['12b', '13b']):
-            num_ctx_rag = 32768  # 32K
-            logger.info(f"RAG Pass 1: Kompakt-Modell ({model_name}), num_ctx={num_ctx_rag}")
+            num_ctx_rag = 36864  # 36K
+            logger.info(f"Pass 1: Kompakt-Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Kleine Modelle (3-9B): Können viel Context bei geringem VRAM
         elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['3b', '4b', '7b', '8b', '9b']):
-            num_ctx_rag = 32768  # 32K - kleine Modelle vertragen das gut
-            logger.info(f"RAG Pass 1: Kleines Modell ({model_name}), num_ctx={num_ctx_rag}")
+            num_ctx_rag = 36864  # 36 - kleine Modelle vertragen das gut
+            logger.info(f"Pass 1: Kleines Modell ({model_name}), num_ctx={num_ctx_rag}")
 
     # 4) NEUER ANSATZ: Direkte Ollama API statt LlamaIndex Query Engine
     # Problem: LlamaIndex Query Engine behandelt Patientendaten als "Frage", nicht als Kontext
     # Lösung: Direkter API-Call mit explizitem Prompt-Aufbau
     try:
-        logger.info(f"Querying with model: {model_name or DEFAULT_MODEL} (direkter API-Call)")
-
         # Hole relevante Guidelines aus dem base_index
         retriever = base_index.as_retriever(similarity_top_k=10)
         guideline_nodes = retriever.retrieve(question)
@@ -257,7 +248,7 @@ def answer_question(
             for i, node in enumerate(guideline_nodes, 1):
                 guideline_context += f"\n[Guideline {i}]:\n{node.text}\n"
             guideline_context += "\n=== ENDE GUIDELINES ===\n"
-            logger.info(f"Guidelines geladen: {len(guideline_nodes)} Chunks")
+            logger.info(f"Guidelines: {len(guideline_nodes)} Chunks")
 
         # Kombiniere ALLES in einem klaren Prompt
         full_prompt = f"""{system_prompt or ''}
@@ -292,7 +283,6 @@ Frage: {question}"""
 {upload_context}
 
 Frage: {question}"""
-            logger.info(f"Prompt gekürzt auf {len(full_prompt)} Zeichen")
 
         # Direkter Ollama API Call (wie in Pass 2)
         ollama_url = f"{OLLAMA_HOST}/api/generate"
@@ -311,7 +301,6 @@ Frage: {question}"""
             }
         }
 
-        logger.info(f"Sending Pass 1 request to Ollama with num_ctx={num_ctx_rag}, num_predict={num_predict}, prompt length={len(full_prompt)} chars")
         resp = requests.post(ollama_url, json=payload, timeout=1200.0)
         resp.raise_for_status()
         result = resp.json()

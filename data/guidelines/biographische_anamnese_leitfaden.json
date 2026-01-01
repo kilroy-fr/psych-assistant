@@ -1,0 +1,79 @@
+{
+  "schema_name": "biographische_anamnese_leitfaden",
+  "version": "1.0",
+  "language": "de",
+  "doc_type": "struktur",
+  "section": "4.1",
+  "description": "Leitfaden für präzise und knappe biographische Anamnese und Krankheitsanamnese",
+  "rules": {
+    "relevanz": "Nur behandlungsrelevante Informationen aufnehmen",
+    "praegnanz": "Knapp und präzise formulieren, keine ausschweifenden Darstellungen",
+    "stoerungsfokus": "Konzentration auf störungsrelevante Aspekte der Biographie",
+    "chronologie": "Chronologische Struktur: Kindheit/Jugend → Erwachsenenalter → Erkrankungsbeginn",
+    "stil": "Sachlich, kompakt, gutachterlich"
+  },
+  "kernaspekte": {
+    "kindheit_jugend": {
+      "label": "Kindheit und Jugend",
+      "prioritaet": "hoch",
+      "inhalte": [
+        "Herkunftsfamilie (nur störungsrelevante Aspekte)",
+        "Bedeutsame Beziehungserfahrungen (Bindung, Konflikte, Verluste)",
+        "Belastende Lebensereignisse (Traumata, Verluste, kritische Ereignisse)",
+        "Entwicklung emotionaler und sozialer Kompetenzen (nur bei Defiziten)",
+        "Schulischer Werdegang (nur bei Auffälligkeiten oder Relevanz)"
+      ],
+      "ausschlusskriterien": [
+        "Detaillierte Familiengeschichten ohne Störungsrelevanz",
+        "Ausführliche Beschreibungen unauffälliger Entwicklungsverläufe",
+        "Irrelevante biografische Details"
+      ]
+    },
+    "erwachsenenalter": {
+      "label": "Erwachsenenalter",
+      "prioritaet": "mittel",
+      "inhalte": [
+        "Beruflicher Werdegang (nur Kernstationen und Auffälligkeiten)",
+        "Partnerschaft/Beziehungen (nur störungsrelevant)",
+        "Bedeutsame Lebensereignisse (Trennungen, Verluste, Krisen)",
+        "Aktuelle Lebenssituation (knapp)"
+      ],
+      "ausschlusskriterien": [
+        "Detaillierte Berufsbiografien ohne Störungsrelevanz",
+        "Ausführliche Beziehungsgeschichten ohne Krankheitsbezug"
+      ]
+    },
+    "krankheitsanamnese": {
+      "label": "Krankheitsanamnese",
+      "prioritaet": "sehr_hoch",
+      "inhalte": [
+        "Zeitpunkt des Erkrankungsbeginns (präzise)",
+        "Auslösendes Ereignis (konkret benennen)",
+        "Symptomverlauf (kurz und prägnant)",
+        "Frühere psychische Erkrankungen (nur kurz: Diagnose, Zeitraum)",
+        "Frühere Behandlungen (nur Eckdaten: Art, Zeitraum, Ergebnis)",
+        "Vorbehandlungen (psychotherapeutisch, psychiatrisch, psychosomatisch)"
+      ],
+      "formulierungshinweise": [
+        "Konkrete Zeitangaben verwenden",
+        "Kausalzusammenhänge klar darstellen",
+        "Symptombeginn von auslösendem Ereignis zeitlich abgrenzen",
+        "Vorbehandlungen tabellarisch denken (kompakt)"
+      ]
+    }
+  },
+  "negativbeispiele": [
+    "Frau X. wurde 1985 in F. geboren. Sie wuchs mit ihren beiden Geschwistern in einem Einfamilienhaus auf. Die Eltern waren beide berufstätig. Frau X. besuchte zunächst die Grundschule in F., dann das Gymnasium...",
+    "Die Patientin beschreibt ihre Kindheit als weitgehend unauffällig. Sie hatte viele Freunde und war in der Schule gut integriert. Nach dem Abitur begann sie ein Studium der Betriebswirtschaftslehre..."
+  ],
+  "positivbeispiele": [
+    "Kindheit durch konfliktreiche Elternbeziehung und emotionale Vernachlässigung geprägt. Frühe Angstsymptome ab dem 8. Lebensjahr.",
+    "Beruflich mehrfache Arbeitsplatzwechsel aufgrund interpersoneller Konflikte. Erste depressive Episode 2018 nach Trennung vom Lebenspartner. Ambulante Psychotherapie 2019 (KZT, 24h) mit teilweiser Besserung. Aktuelle Symptomverschlechterung seit 03/2023 nach beruflicher Überforderungssituation."
+  ],
+  "laengenrichtlinie": {
+    "abschnitt_4_1_gesamt": "max. 1-2 Absätze (ca. 8-15 Zeilen)",
+    "kindheit_jugend": "max. 3-5 Zeilen",
+    "erwachsenenalter": "max. 2-4 Zeilen",
+    "krankheitsanamnese": "max. 4-6 Zeilen"
+  }
+}

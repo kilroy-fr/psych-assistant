@@ -40,8 +40,9 @@
         },
         {
           "id": "2.3",
-          "title": "Psychischer Befund",
-          "required": true
+          "title": "Psychopathologischer Befund",
+          "required": true,
+          "description": "Strukturierter psychopathologischer Befund (Bewusstsein, Orientierung, Gedächtnis, Aufmerksamkeit, formales und inhaltliches Denken, Wahrnehmung, Ich-Erleben, Affektivität, Antrieb, Psychomotorik, zirkadiane Besonderheiten)"
         },
         {
           "id": "2.4",

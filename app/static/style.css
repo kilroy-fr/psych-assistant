@@ -656,3 +656,166 @@ button:hover {
   pointer-events: none;
 }
 
+/* Fortschrittsanzeige */
+.progress-tracker {
+  margin-top: 25px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.progress-combo {
+  margin-bottom: 18px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.progress-combo:last-child {
+  margin-bottom: 0;
+}
+
+.progress-combo.active {
+  background: rgba(74, 158, 255, 0.15);
+  border-left-color: #4a9eff;
+}
+
+.progress-combo-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.progress-arrow {
+  font-size: 1.2rem;
+  color: #6b7280;
+  transition: all 0.3s ease;
+  opacity: 0;
+}
+
+.progress-combo.active .progress-arrow {
+  opacity: 1;
+  color: #4a9eff;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(5px);
+  }
+}
+
+.progress-combo-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.progress-combo.active .progress-combo-title {
+  color: #e0e0e0;
+}
+
+.progress-combo.completed .progress-combo-title {
+  color: #10b981;
+}
+
+.progress-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 30px;
+}
+
+.progress-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+}
+
+.progress-section.active {
+  background: rgba(74, 158, 255, 0.2);
+}
+
+.progress-section.completed {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.section-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4b5563;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.progress-section.active .section-indicator {
+  background: #4a9eff;
+  box-shadow: 0 0 10px rgba(74, 158, 255, 0.6);
+  animation: blink 1s ease-in-out infinite;
+}
+
+.progress-section.completed .section-indicator {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.section-label {
+  flex: 1;
+  color: #9ca3af;
+}
+
+.progress-section.active .section-label {
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.progress-section.completed .section-label {
+  color: #10b981;
+}
+
+.section-pass {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 600;
+  min-width: 50px;
+  text-align: right;
+}
+
+.progress-section.active .section-pass {
+  color: #4a9eff;
+}
+
+.progress-section.completed .section-pass {
+  color: #10b981;
+}
+
+.combo-item {
+  padding: 8px 12px;
+  margin: 5px 0;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #d1d5db;
+}
+

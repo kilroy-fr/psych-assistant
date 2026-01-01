@@ -5,11 +5,15 @@ import io
 import base64
 import logging
 import requests
-from flask import Flask, render_template, request, jsonify, send_file
+import queue
+from flask import Flask, render_template, request, jsonify, send_file, Response
 from app.rag.query_engine import answer_question
 from app.docx_generator import create_comparison_docx, create_flowing_text_docx, sanitize_sensitive_text
 
 app = Flask(__name__)
+
+# Globaler Event-Queue für Fortschrittsupdates
+progress_queues = {}
 
 # Debug-Logging für Zwischenergebnisse
 debug_logger = logging.getLogger("psych_debug")
@@ -25,23 +29,28 @@ file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
 debug_logger.addHandler(file_handler)
 
-# Feste Modellkombinationen (3 Kombinationen)
-# Optimiert: Kombinationen 2 und 3 teilen sich Pass1 (qwen3:14b)
+# Feste Modellkombinationen (2 Kombinationen)
+# Beide teilen sich Pass1 (qwen3:14b) für Effizienz
 MODEL_COMBINATIONS = [
-    {"pass1": "qwen2.5:14b", "pass2": "deepseek-r1:14b"},   # Kombi 1
-    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 2
-    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 3 (nutzt Pass1 von Kombi 2)
+    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 1
+    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 2 (nutzt Pass1 von Kombi 1)
 ]
 
-# Abschnitts-Ueberschriften (4 Abschnitte - Abschnitte 4 und 6 werden separat erstellt)
-# Abschnitt 4 (Lebensgeschichte/Bedingungsmodell) und 6 (Behandlungsplan/Prognose) sind zu komplex
+# Spezielle Modelle für komplexe Abschnitte 4 und 6
+# Diese nutzen größere Modelle wegen der Komplexität (Bedingungsmodell, Behandlungsplan)
+MODEL_COMBINATIONS_SECTION4_6 = [
+    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},                # Kombi 1
+    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},            # Kombi 2
+]
+
+# Abschnitts-Ueberschriften (6 Abschnitte)
 SECTION_HEADERS = [
-    "Relevante soziodemographische Daten",           # 1
-    "Symptomatik und psychischer Befund",            # 2
-    "Somatischer Befund",                            # 3
-    "Diagnose nach ICD-10",                          # 5 (im Schema)
-    # Abschnitt 4: Lebensgeschichte/Bedingungsmodell (mit SORC-Schema) - SEPARAT
-    # Abschnitt 6: Behandlungsplan und Prognose - SEPARAT
+    "Relevante soziodemographische Daten",                                      # 1
+    "Symptomatik und psychischer Befund",                                       # 2
+    "Somatischer Befund",                                                       # 3
+    "Behandlungsrelevante Angaben zur Lebensgeschichte, Krankheitsanamnese, funktionales Bedingungsmodell (VT)",  # 4
+    "Diagnose nach ICD-10",                                                     # 5
+    "Behandlungsplan und Prognose",                                             # 6
 ]
 
 # Prompts aus Dateien laden (2-Pass-System)
@@ -54,8 +63,16 @@ def load_prompt(filename):
     except FileNotFoundError:
         return None
 
-PROMPT1 = load_prompt("prompt1.txt")  # Pass 1: Fakten-Extraktion
-PROMPT2 = load_prompt("prompt2.txt")  # Pass 2: Berichts-Formulierung
+PROMPT1 = load_prompt("prompt1.txt")  # Pass 1: Fakten-Extraktion (Abschnitte 1-3, 5)
+PROMPT2 = load_prompt("prompt2.txt")  # Pass 2: Berichts-Formulierung (Abschnitte 1-3, 5)
+
+# Prompts für Abschnitt 4 (Lebensgeschichte/Bedingungsmodell)
+PROMPT4_PASS1 = load_prompt("prompt4-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 4
+PROMPT4_PASS2 = load_prompt("prompt4-2.txt")  # Pass 2: Berichts-Formulierung für Abschnitt 4
+
+# Prompts für Abschnitt 6 (Behandlungsplan/Prognose)
+PROMPT6_PASS1 = load_prompt("prompt6-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 6
+PROMPT6_PASS2 = load_prompt("prompt6-2.txt")  # Pass 2: Berichts-Formulierung für Abschnitt 6
 
 # Fallback für altes System
 DEFAULT_SYSTEM_PROMPT = PROMPT1 if PROMPT1 else load_prompt("prompt.txt")
@@ -82,16 +99,17 @@ def get_models():
 
 
 def parse_sections(text):
-    """Extrahiert die 4 Abschnitte aus dem Antworttext (ohne Abschnitt 4 und 6)."""
-    sections = [""] * 4  # 4 Abschnitte
+    """Extrahiert die 6 Abschnitte aus dem Antworttext."""
+    sections = [""] * 6  # 6 Abschnitte
 
     # Muster fuer Abschnitts-Ueberschriften (flexibel)
-    # Abschnitt 4 (Lebensgeschichte/SORC) und 6 (Behandlungsplan/Prognose) werden separat erstellt
     patterns = [
         r"(?:1\.|I\.?|1\)|\*\*1\.?\*\*|##?\s*1\.?)?\s*(?:Relevante\s+)?soziodemographische\s+Daten",
         r"(?:2\.|II\.?|2\)|\*\*2\.?\*\*|##?\s*2\.?)?\s*Symptomatik\s+und\s+psychischer\s+Befund",
         r"(?:3\.|III\.?|3\)|\*\*3\.?\*\*|##?\s*3\.?)?\s*Somatischer\s+Befund",
-        r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+nach\s+ICD",  # Abschnitt 5 im Schema
+        r"(?:4\.|IV\.?|4\)|\*\*4\.?\*\*|##?\s*4\.?)?\s*Behandlungsrelevante\s+Angaben\s+zur\s+Lebensgeschichte",  # Abschnitt 4
+        r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+nach\s+ICD",  # Abschnitt 5
+        r"(?:6\.|VI\.?|6\)|\*\*6\.?\*\*|##?\s*6\.?)?\s*Behandlungsplan\s+und\s+Prognose",  # Abschnitt 6
     ]
 
     # Finde alle Abschnittspositionen
@@ -117,7 +135,13 @@ def parse_sections(text):
     return sections
 
 
-def run_pass1(uploaded_files, paste_text, question, prompt1, model_name, combo_index=None):
+def send_progress(session_id, message):
+    """Sendet eine Fortschrittsnachricht an alle aktiven SSE-Verbindungen."""
+    if session_id in progress_queues:
+        progress_queues[session_id].put(message)
+
+
+def run_pass1(uploaded_files, paste_text, question, prompt1, model_name, combo_index=None, session_id=None):
     """Fuehrt Pass 1 (Fakten-Extraktion) aus."""
     from werkzeug.datastructures import FileStorage
 
@@ -138,17 +162,10 @@ def run_pass1(uploaded_files, paste_text, question, prompt1, model_name, combo_i
         model_name=model_name,
     )
 
-    # Debug-Logging
-    debug_logger.debug(f"\n{'='*80}")
-    debug_logger.debug(f"Kombination {combo_index} - Modell: {model_name}")
-    debug_logger.debug(f"{'='*80}")
-    debug_logger.debug(f"Ergebnis:\n{result}")
-    debug_logger.debug(f"{'='*80}\n")
-
     return result
 
 
-def run_pass2(pass1_answer, prompt2, model_name, combo_index=None):
+def run_pass2(pass1_answer, prompt2, model_name, combo_index=None, session_id=None):
     """Fuehrt Pass 2 (Berichts-Formulierung) basierend auf Pass 1 aus.
 
     Bei leerem Ergebnis wird mit alternativen Parametern wiederholt.
@@ -170,9 +187,7 @@ AUFGABE: Erstelle nun basierend auf diesen PASS 1 Ergebnissen den fertigen Beric
         (0.5, 4096, "Retry 2: noch höhere Temperatur, minimaler Context"),
     ]
 
-    for attempt, (temp, ctx, desc) in enumerate(retry_configs, 1):
-        debug_logger.debug(f"Pass 2 Versuch {attempt}: {desc}")
-
+    for temp, ctx, _ in retry_configs:
         result = answer_question(
             question=pass2_question,
             system_prompt=prompt2,
@@ -183,24 +198,11 @@ AUFGABE: Erstelle nun basierend auf diesen PASS 1 Ergebnissen den fertigen Beric
             num_ctx_override=ctx,
         )
 
-        # Debug-Logging
-        debug_logger.debug(f"\n{'='*80}")
-        debug_logger.debug(f"Kombination {combo_index} - PASS 2 - Modell: {model_name} - Versuch {attempt}")
-        debug_logger.debug(f"Parameter: {desc}")
-        debug_logger.debug(f"{'='*80}")
-        debug_logger.debug(f"Ergebnis:\n{result}")
-        debug_logger.debug(f"{'='*80}\n")
-
         # Prüfe ob Ergebnis valide ist (nicht leer und keine Fehlermeldung)
         if result and len(result.strip()) > 50 and not result.startswith("❌") and not result.startswith("⏱️"):
-            if attempt > 1:
-                debug_logger.debug(f"Erfolg nach {attempt} Versuchen!")
             return result
 
-        debug_logger.debug(f"Versuch {attempt} lieferte leeres/fehlerhaftes Ergebnis, wiederhole...")
-
     # Nach allen Versuchen das letzte Ergebnis zurückgeben
-    debug_logger.debug(f"Alle {len(retry_configs)} Versuche fehlgeschlagen")
     return result
 
 
@@ -212,72 +214,207 @@ def is_pass1_failed(result):
     return result_stripped.startswith("⏱️") or result_stripped.startswith("❌")
 
 
-def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, prompt2, pass1_cache=None, combo_index=None):
+def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, prompt2, pass1_cache=None, combo_index=None, session_id=None):
     """Fuehrt einen 2-Pass-Durchlauf mit einer Modellkombination aus.
 
     Args:
         pass1_cache: Optional dict zum Cachen/Wiederverwenden von Pass1-Ergebnissen.
                      Key = Pass1-Modellname, Value = Pass1-Ergebnis.
         combo_index: Index der Kombination (1-4) für Logging.
+        session_id: Session-ID für Fortschrittsupdates.
     """
     pass1_model = combo["pass1"]
-
-    # Debug-Logging: Start der Kombination
-    debug_logger.debug(f"\n{'#'*80}")
-    debug_logger.debug(f"KOMBINATION {combo_index}: {combo['pass1']} -> {combo['pass2']}")
-    debug_logger.debug(f"{'#'*80}")
 
     # Pass1: Aus Cache nehmen oder neu berechnen
     if pass1_cache is not None and pass1_model in pass1_cache:
         pass1_answer = pass1_cache[pass1_model]
-        debug_logger.debug(f"Pass 1 aus Cache (Modell {pass1_model} bereits berechnet)")
     else:
-        pass1_answer = run_pass1(uploaded_files, paste_text, question, prompt1, pass1_model, combo_index)
+        send_progress(session_id, {"combo": combo_index, "section": "1-3, 5", "pass": 1, "status": "running"})
+        pass1_answer = run_pass1(uploaded_files, paste_text, question, prompt1, pass1_model, combo_index, session_id)
         if pass1_cache is not None:
             pass1_cache[pass1_model] = pass1_answer
 
     # Bei Pass1-Fehler (Timeout/Error) Pass2 ueberspringen
     if is_pass1_failed(pass1_answer):
-        debug_logger.debug(f"Pass 1 fehlgeschlagen - ueberspringe Pass 2 fuer Kombination {combo_index}")
         return pass1_answer  # Fehlermeldung durchreichen
 
     # Pass2: Immer neu berechnen (unterschiedliche Modelle)
-    final_answer = run_pass2(pass1_answer, prompt2, combo["pass2"], combo_index)
+    send_progress(session_id, {"combo": combo_index, "section": "1-3, 5", "pass": 2, "status": "running"})
+    final_answer = run_pass2(pass1_answer, prompt2, combo["pass2"], combo_index, session_id)
 
     return final_answer
 
 
+def run_section4(combo, combo_section4_6, uploaded_files, paste_text, pass1_cache_section4=None, combo_index=None, session_id=None):
+    """Generiert Abschnitt 4 (Lebensgeschichte/Bedingungsmodell) mit 2-Pass-System.
+
+    Nutzt größere/bessere Modelle aus combo_section4_6 für komplexere Analyse.
+    """
+    pass1_model = combo_section4_6["pass1"]
+
+    # Pass1: Aus Cache nehmen oder neu berechnen
+    if pass1_cache_section4 is not None and pass1_model in pass1_cache_section4:
+        pass1_answer = pass1_cache_section4[pass1_model]
+    else:
+        send_progress(session_id, {"combo": combo_index, "section": "4", "pass": 1, "status": "running"})
+        pass1_answer = run_pass1(
+            uploaded_files, paste_text,
+            "Analysiere die Patientendaten für Abschnitt 4 (Lebensgeschichte/Bedingungsmodell).",
+            PROMPT4_PASS1, pass1_model, combo_index, session_id
+        )
+        if pass1_cache_section4 is not None:
+            pass1_cache_section4[pass1_model] = pass1_answer
+
+    # Bei Pass1-Fehler Pass2 überspringen
+    if is_pass1_failed(pass1_answer):
+        return pass1_answer
+
+    # Pass2
+    send_progress(session_id, {"combo": combo_index, "section": "4", "pass": 2, "status": "running"})
+    final_answer = run_pass2(pass1_answer, PROMPT4_PASS2, combo_section4_6["pass2"], combo_index, session_id)
+    return final_answer
+
+
+def run_section6(combo, combo_section4_6, uploaded_files, paste_text, pass1_cache_section6=None, combo_index=None, session_id=None):
+    """Generiert Abschnitt 6 (Behandlungsplan/Prognose) mit 2-Pass-System.
+
+    Nutzt größere/bessere Modelle aus combo_section4_6 für komplexere Analyse.
+    """
+    pass1_model = combo_section4_6["pass1"]
+
+    # Pass1: Aus Cache nehmen oder neu berechnen
+    if pass1_cache_section6 is not None and pass1_model in pass1_cache_section6:
+        pass1_answer = pass1_cache_section6[pass1_model]
+    else:
+        send_progress(session_id, {"combo": combo_index, "section": "6", "pass": 1, "status": "running"})
+        pass1_answer = run_pass1(
+            uploaded_files, paste_text,
+            "Analysiere die Patientendaten für Abschnitt 6 (Behandlungsplan/Prognose).",
+            PROMPT6_PASS1, pass1_model, combo_index, session_id
+        )
+        if pass1_cache_section6 is not None:
+            pass1_cache_section6[pass1_model] = pass1_answer
+
+    # Bei Pass1-Fehler Pass2 überspringen
+    if is_pass1_failed(pass1_answer):
+        return pass1_answer
+
+    # Pass2
+    send_progress(session_id, {"combo": combo_index, "section": "6", "pass": 2, "status": "running"})
+    final_answer = run_pass2(pass1_answer, PROMPT6_PASS2, combo_section4_6["pass2"], combo_index, session_id)
+    return final_answer
+
+
+@app.route("/progress/<session_id>")
+def progress_stream(session_id):
+    """Server-Sent Events Endpunkt für Fortschrittsupdates."""
+    import json
+
+    def event_stream():
+        # Erstelle Queue für diese Session
+        q = queue.Queue()
+        progress_queues[session_id] = q
+
+        try:
+            while True:
+                # Warte auf Nachricht (mit Timeout um Connection zu prüfen)
+                try:
+                    message = q.get(timeout=30)
+                    if message == "DONE":
+                        yield f"data: {json.dumps({'status': 'done'})}\n\n"
+                        break
+                    yield f"data: {json.dumps(message)}\n\n"
+                except queue.Empty:
+                    # Keepalive Ping
+                    yield f": keepalive\n\n"
+        finally:
+            # Cleanup
+            if session_id in progress_queues:
+                del progress_queues[session_id]
+
+    return Response(event_stream(), mimetype='text/event-stream')
+
+
 @app.route("/ask-compare", methods=["POST"])
 def ask_compare():
-    """Fuehrt alle 3 Modellkombinationen aus und gibt DOCX und JSON zurueck."""
+    """Fuehrt alle 2 Modellkombinationen aus und gibt DOCX und JSON zurueck."""
+    import uuid
+
     question = "Analysiere die hochgeladenen Patientendaten."
     uploaded_files = request.files.getlist("files")
     paste_text = request.form.get("paste_text", "").strip()
+    session_id = request.form.get("session_id", str(uuid.uuid4()))
 
-    if not PROMPT1 or not PROMPT2:
+    if not PROMPT1 or not PROMPT2 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
         return jsonify({"error": "Prompts nicht gefunden"}), 500
 
-    # Cache fuer Pass1-Ergebnisse: Kombinationen mit gleichem Pass1-Modell
-    # (z.B. Kombi 1 und 2 nutzen beide qwen2.5:14b) sparen Zeit
-    pass1_cache = {}
+    # Caches fuer Pass1-Ergebnisse (fuer jede Abschnittsgruppe separat)
+    pass1_cache = {}  # Fuer Abschnitte 1-3, 5
+    pass1_cache_section4 = {}  # Fuer Abschnitt 4
+    pass1_cache_section6 = {}  # Fuer Abschnitt 6
 
-    results = []
-    debug_logger.debug(f"\n{'*'*80}")
-    debug_logger.debug(f"NEUE ANFRAGE GESTARTET")
-    debug_logger.debug(f"{'*'*80}\n")
+    # Vollstaendige Ergebnisse: Pro Kombination ein String mit allen 6 Abschnitten
+    full_results = []
 
     for i, combo in enumerate(MODEL_COMBINATIONS, 1):
-        result = run_model_combination(
+        # Hole entsprechende Kombination für Abschnitte 4 und 6
+        combo_section4_6 = MODEL_COMBINATIONS_SECTION4_6[i-1]
+
+        send_progress(session_id, {"combo": i, "section": "start", "status": "starting"})
+
+        # Abschnitte 1-3, 5 generieren (Standard-Workflow mit schnelleren Modellen)
+        result_135 = run_model_combination(
             combo, uploaded_files, paste_text, question, PROMPT1, PROMPT2,
-            pass1_cache=pass1_cache, combo_index=i
+            pass1_cache=pass1_cache, combo_index=i, session_id=session_id
         )
-        results.append(result)
-        # Dateizeiger zuruecksetzen fuer naechsten Durchlauf
+
+        # Dateizeiger zurücksetzen
         for f in uploaded_files:
             if hasattr(f, 'stream'):
                 f.stream.seek(0)
 
-    sanitized_results = [sanitize_sensitive_text(result) for result in results]
+        # Abschnitt 4 separat generieren (mit größeren Modellen)
+        result_4 = run_section4(combo, combo_section4_6, uploaded_files, paste_text, pass1_cache_section4, combo_index=i, session_id=session_id)
+
+        # Dateizeiger zurücksetzen
+        for f in uploaded_files:
+            if hasattr(f, 'stream'):
+                f.stream.seek(0)
+
+        # Abschnitt 6 separat generieren (mit größeren Modellen)
+        result_6 = run_section6(combo, combo_section4_6, uploaded_files, paste_text, pass1_cache_section6, combo_index=i, session_id=session_id)
+
+        # Dateizeiger zurücksetzen für nächste Kombination
+        for f in uploaded_files:
+            if hasattr(f, 'stream'):
+                f.stream.seek(0)
+
+        send_progress(session_id, {"combo": i, "section": "done", "status": "completed"})
+
+        # Parse result_135 um Abschnitte 1-3 und 5 zu extrahieren
+        sections_135 = parse_sections(result_135)
+
+        # Alle 6 Abschnitte in korrekter Reihenfolge zusammenstellen
+        # sections_135[0] = Abschnitt 1
+        # sections_135[1] = Abschnitt 2
+        # sections_135[2] = Abschnitt 3
+        # sections_135[3] = Abschnitt 5 (war im ursprünglichen parse_sections an Position 3)
+        # result_4 = Abschnitt 4
+        # result_6 = Abschnitt 6
+
+        # Zusammenführen in Reihenfolge 1, 2, 3, 4, 5, 6
+        full_text = "\n\n".join([
+            sections_135[0],  # Abschnitt 1
+            sections_135[1],  # Abschnitt 2
+            sections_135[2],  # Abschnitt 3
+            result_4,         # Abschnitt 4
+            sections_135[3],  # Abschnitt 5
+            result_6          # Abschnitt 6
+        ])
+
+        full_results.append(full_text)
+
+    sanitized_results = [sanitize_sensitive_text(result) for result in full_results]
 
     # DOCX erstellen (via docx_generator Modul)
     docx_output = create_comparison_docx(
@@ -296,11 +433,15 @@ def ask_compare():
     docx_bytes = docx_output.read()
     docx_base64 = base64.b64encode(docx_bytes).decode('utf-8')
 
+    # Signalisiere Fertigstellung
+    send_progress(session_id, "DONE")
+
     return jsonify({
         "docx_base64": docx_base64,
         "sections": SECTION_HEADERS,
         "models": model_names,
-        "results": parsed_results  # [[6 sections], [6 sections], [6 sections], [6 sections]]
+        "results": parsed_results,  # [[6 sections], [6 sections], [6 sections]]
+        "session_id": session_id
     })
 
 

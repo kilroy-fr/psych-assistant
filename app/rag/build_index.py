@@ -51,6 +51,24 @@ DOCUMENT_METADATA = {
         "doc_type": "checkliste",
         "description": "Qualitätscheckliste für Beihilfe-konforme Berichtsinhalte"
     },
+    "SORC.json": {
+        "role": "bedingungsmodell_schema",
+        "source": "VT_Methodik",
+        "doc_type": "struktur",
+        "description": "SORC-Schema für verhaltenstherapeutisches Bedingungsmodell (Stimulus-Organismus-Response-Consequences)"
+    },
+    "psychopathologischer_befund.json": {
+        "role": "befund_schema",
+        "source": "AMDP",
+        "doc_type": "struktur",
+        "description": "Strukturschema für psychopathologischen Befund (Bewusstsein, Orientierung, Gedächtnis, Denken, Wahrnehmung, Affektivität, Antrieb)"
+    },
+    "biographische_anamnese_leitfaden.json": {
+        "role": "anamnese_leitfaden",
+        "source": "PTV3",
+        "doc_type": "struktur",
+        "description": "Leitfaden für präzise und knappe biographische Anamnese (Abschnitt 4.1): Relevanz, Prägnanz, Störungsfokus"
+    },
     # Legacy-Unterstützung
     "guidelines.pdf": {
         "doc_type": "fachinhalt",

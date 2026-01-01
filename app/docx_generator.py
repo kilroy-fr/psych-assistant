@@ -140,7 +140,7 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     """Erstellt eine DOCX-Datei mit Vergleichstabelle.
 
     Args:
-        results: Liste mit 4 Ergebnis-Strings (einer pro Modellkombination)
+        results: Liste mit Ergebnis-Strings (einer pro Modellkombination)
         model_combinations: Liste der Modellkombinationen [{"pass1": ..., "pass2": ...}, ...]
         section_headers: Liste der Abschnitts-Ueberschriften
         parse_sections_func: Funktion zum Parsen der Abschnitte aus dem Text
@@ -150,27 +150,26 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     """
     doc = Document()
 
-    # Tabelle: Header + Abschnittszeilen, 6 Spalten (1 Ueberschrift + 4 Kombis + 1 Leer)
-    table = doc.add_table(rows=len(section_headers) + 1, cols=6)
+    num_combos = len(model_combinations)
+    # Tabelle: Header + Abschnittszeilen, Spalten = 1 Ueberschrift + n Kombis + 1 Leer
+    cols = num_combos + 2
+    table = doc.add_table(rows=len(section_headers) + 1, cols=cols)
     table.style = "Table Grid"
 
-    # Spaltenbreiten setzen
+    # Spaltenbreiten setzen (robust bei variabler Kombi-Anzahl)
     for row in table.rows:
-        row.cells[0].width = Cm(4)    # Ueberschriften
-        row.cells[1].width = Cm(4)    # Kombi 1
-        row.cells[2].width = Cm(4)    # Kombi 2
-        row.cells[3].width = Cm(4)    # Kombi 3
-        row.cells[4].width = Cm(4)    # Kombi 4
-        row.cells[5].width = Cm(1)    # Leer
+        if cols > 0:
+            row.cells[0].width = Cm(4)    # Ueberschriften
+        for idx in range(1, cols - 1):
+            row.cells[idx].width = Cm(4)  # Kombis
+        row.cells[cols - 1].width = Cm(1)  # Leer
 
     # Header-Zeile (erste Zeile leer in Spalte 1)
     header_row = table.rows[0]
     header_row.cells[0].text = ""
-    header_row.cells[1].text = f"{model_combinations[0]['pass1']} + {model_combinations[0]['pass2']}"
-    header_row.cells[2].text = f"{model_combinations[1]['pass1']} + {model_combinations[1]['pass2']}"
-    header_row.cells[3].text = f"{model_combinations[2]['pass1']} + {model_combinations[2]['pass2']}"
-    header_row.cells[4].text = f"{model_combinations[3]['pass1']} + {model_combinations[3]['pass2']}"
-    header_row.cells[5].text = ""
+    for idx, combo in enumerate(model_combinations, start=1):
+        header_row.cells[idx].text = f"{combo['pass1']} + {combo['pass2']}"
+    header_row.cells[cols - 1].text = ""
 
     # Extrahiere Abschnitte aus jedem Ergebnis
     parsed_results = [parse_sections_func(result) for result in results]
@@ -183,13 +182,13 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
         # Spalte 1: Ueberschrift
         row.cells[0].text = section_headers[section_idx]
 
-        # Spalten 2-5: Ergebnisse (4 Kombinationen)
-        for combo_idx in range(4):
+        # Spalten 2..(n+1): Ergebnisse (eine pro Kombination)
+        for combo_idx in range(num_combos):
             cell_text = parsed_results[combo_idx][section_idx]
             row.cells[combo_idx + 1].text = sanitize_sensitive_text(cell_text)
 
-        # Spalte 6: leer
-        row.cells[5].text = ""
+        # Letzte Spalte: leer
+        row.cells[cols - 1].text = ""
 
     # Formatierung
     for row in table.rows:
