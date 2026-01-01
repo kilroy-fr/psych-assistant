@@ -356,8 +356,13 @@ function renderComparisonTable(data) {
       td.dataset.col = colIdx;
       td.dataset.tooltip = sectionHeader;
 
-      const cellText = data.results[colIdx][rowIdx] || "";
-      td.textContent = cellText;
+      // Verwende HTML-formatierte Ergebnisse falls vorhanden, sonst Plain text
+      const cellContent = (data.html_results && data.html_results[colIdx] && data.html_results[colIdx][rowIdx])
+        ? data.html_results[colIdx][rowIdx]
+        : data.results[colIdx][rowIdx] || "";
+
+      // Nutze innerHTML für HTML-Formatierung
+      td.innerHTML = cellContent;
 
       if (colIdx === 0) {
         td.classList.add("selected");

@@ -7,7 +7,7 @@ body {
 }
 
 .container {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 40px auto;
   padding: 24px;
   background: #1f2937;
@@ -654,6 +654,46 @@ button:hover {
   border-top-color: #f9fafb;
   z-index: 1000;
   pointer-events: none;
+}
+
+/* HTML-Formatierung in Tabellenzellen */
+.comparison-cell h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 8px 0 6px 0;
+  padding-top: 8px;
+  border-top: 2px solid #e5e7eb;
+}
+
+.comparison-cell h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.comparison-cell h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 6px 0 4px 0;
+}
+
+.comparison-cell h4 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4b5563;
+  margin: 4px 0 3px 0;
+}
+
+.comparison-cell p {
+  margin: 4px 0;
+  line-height: 1.6;
+}
+
+.comparison-cell p:empty {
+  margin: 2px 0;
+  line-height: 0.5;
 }
 
 /* Fortschrittsanzeige */
