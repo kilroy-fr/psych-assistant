@@ -32,16 +32,38 @@ WICHTIG FUER 4.1:
 - Klare, kompakte Saetze.
 
 4.2 Funktionales Bedingungsmodell
+
+KRITISCH - EINMALIGE SORC-STRUKTUR:
+- Erstelle GENAU EINE vollstaendige SORC-Sequenz (nicht mehrere!).
+- Reihenfolge: S -> O -> R -> C+ -> C- -> C+/ -> C-/
+- NIEMALS die SORC-Komponenten wiederholen oder mehrere SORC-Bloecke erstellen.
+- Alle Informationen aus PASS 1 werden in DIESE EINE Struktur integriert.
+
+AUSGABEFORMAT:
 S (Stimulus: Aeussere und innere Ausloeser)
+[Hier ALLE Stimuli aus Pass 1 in EINEM Fliesstext zusammenfassen]
+
 O (Organismus: Biographische, kognitive, emotionale, somatische Faktoren)
+[Hier ALLE organismischen Faktoren aus Pass 1 in EINEM Fliesstext zusammenfassen]
+
 R (Response: Kognitive, emotionale, physiologische, behaviorale Reaktionen)
+[Hier ALLE Reaktionsebenen aus Pass 1 in EINEM Fliesstext zusammenfassen]
+
 C+ (Positive Verstaerkung: Angenehmes wird hinzugefuegt)
+[Ein Fliesstext mit allen C+ Konsequenzen aus Pass 1]
+
 C- (Negative Verstaerkung: Unangenehmes wird entfernt)
+[Ein Fliesstext mit allen C- Konsequenzen aus Pass 1]
+
 C+/ (Positive Bestrafung: Unangenehmes wird hinzugefuegt)
+[Ein Fliesstext mit allen C+/ Konsequenzen aus Pass 1]
+
 C-/ (Negative Bestrafung: Angenehmes wird entzogen)
+[Ein Fliesstext mit allen C-/ Konsequenzen aus Pass 1]
 
 STIL:
 - Sachlich, gutachterlich, neutral.
 - Keine psychodynamischen Deutungen.
+- Jede Komponente ist EIN zusammenhaengender Fliesstext (keine Aufzaehlungen).
 
 JETZT PASS 2 FUER ABSCHNITT 4 BEGINNEN.

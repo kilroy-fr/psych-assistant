@@ -4,12 +4,54 @@
 import io
 import os
 import re
+import json
 from docx import Document
 from docx.shared import Pt, Cm
 from docx.oxml import OxmlElement
 from docx.text.paragraph import Paragraph
 
 TEMPLATE_FILENAME = "report_template.docx"
+
+# Lade Schema-Definitionen für Überschriften
+def load_schema():
+    """Lädt das Report-Schema für Überschriftenstruktur."""
+    schema_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "data",
+        "guidelines",
+        "report_schema_vt_umwandlung.json"
+    )
+    try:
+        with open(schema_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
+
+# Erstelle Überschriften-Mapping aus Schema
+def build_heading_map(schema):
+    """Erstellt ein Mapping von Überschriften zu Hierarchieebenen.
+
+    Returns:
+        dict: {überschrift: level} wobei level = 2 (Hauptüberschrift), 3 (Unterüberschrift), 4 (Sub-Unterüberschrift)
+    """
+    if not schema:
+        return {}
+
+    heading_map = {}
+    for section in schema.get("sections", []):
+        # Hauptüberschrift (Level 2 = h2)
+        heading_map[section["title"]] = 2
+
+        # Unterüberschriften (Level 3 = h3)
+        for subsection in section.get("subsections", []):
+            heading_map[subsection["title"]] = 3
+
+    return heading_map
+
+# Globales Schema und Heading-Map laden
+SCHEMA = load_schema()
+HEADING_MAP = build_heading_map(SCHEMA)
 
 SUBHEADINGS = {
     "Symptomatik",
@@ -59,7 +101,47 @@ def _insert_paragraph_after(paragraph, text, style=None):
     return new_para
 
 
+def detect_heading_level(text):
+    """Erkennt die Überschriftenebene basierend auf Schema-Definitionen.
+
+    Args:
+        text: Der zu prüfende Text
+
+    Returns:
+        int oder None: 2 (h2/Heading 2), 3 (h3/Heading 3), 4 (h4/Heading 4) oder None
+    """
+    cleaned = text.strip()
+
+    # Exakte Übereinstimmung mit Schema
+    if cleaned in HEADING_MAP:
+        return HEADING_MAP[cleaned]
+
+    # Fuzzy Matching: Prüfe ob Text eine Überschrift enthält (tolerant gegenüber Präfixen wie "2.1", etc.)
+    for heading, level in HEADING_MAP.items():
+        # Entferne Nummerierung am Anfang (z.B. "2.1 ", "4.2. ", etc.)
+        pattern = r"^(?:\d+\.?\d*\.?\s*)?(.+)$"
+        match = re.match(pattern, cleaned)
+        if match:
+            text_without_number = match.group(1).strip()
+            if text_without_number == heading or heading in text_without_number:
+                return level
+
+    # Fallback: Alte Logik für Subheadings
+    if cleaned in SUBHEADINGS:
+        return 3
+
+    return None
+
+
 def _replace_placeholder_with_text(doc, placeholder, text):
+    """Ersetzt Platzhalter mit formatiertem Text.
+
+    Überschriften werden automatisch mit passenden Styles versehen:
+    - Hauptüberschriften: Heading 2
+    - Unterüberschriften: Heading 3
+    - Sub-Unterüberschriften: Heading 4
+    - Normaler Text: Normal
+    """
     for paragraph in doc.paragraphs:
         if paragraph.text.strip() == placeholder:
             anchor = paragraph
@@ -77,7 +159,18 @@ def _replace_placeholder_with_text(doc, placeholder, text):
                     if not cleaned:
                         _insert_paragraph_after(anchor, "")
                         continue
-                    style = "Heading 2" if cleaned in SUBHEADINGS else "Normal"
+
+                    # Erkenne Überschriftenebene
+                    heading_level = detect_heading_level(cleaned)
+                    if heading_level == 2:
+                        style = "Heading 2"
+                    elif heading_level == 3:
+                        style = "Heading 3"
+                    elif heading_level == 4:
+                        style = "Heading 4"
+                    else:
+                        style = "Normal"
+
                     _insert_paragraph_after(anchor, cleaned, style=style)
 
             anchor._p.getparent().remove(anchor._p)
@@ -203,6 +296,41 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     doc.save(output)
     output.seek(0)
     return output
+
+
+def format_text_as_html(text):
+    """Formatiert Text mit HTML-Tags für Überschriften (h2-h4).
+
+    Args:
+        text: Der zu formatierende Text
+
+    Returns:
+        str: HTML-formatierter Text
+    """
+    if not text:
+        return ""
+
+    lines = text.splitlines()
+    html_lines = []
+
+    for line in lines:
+        cleaned = line.strip()
+        if not cleaned:
+            html_lines.append("<p></p>")
+            continue
+
+        # Erkenne Überschriftenebene
+        heading_level = detect_heading_level(cleaned)
+        if heading_level == 2:
+            html_lines.append(f"<h2>{cleaned}</h2>")
+        elif heading_level == 3:
+            html_lines.append(f"<h3>{cleaned}</h3>")
+        elif heading_level == 4:
+            html_lines.append(f"<h4>{cleaned}</h4>")
+        else:
+            html_lines.append(f"<p>{cleaned}</p>")
+
+    return "\n".join(html_lines)
 
 
 def create_flowing_text_docx(sections, selected_texts):

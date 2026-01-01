@@ -38,18 +38,25 @@ C-
 C+/
 C-/
 
+KRITISCH - STRUKTUR DES S-O-R-C-MODELLS:
+- Es gibt GENAU EINE SORC-Sequenz (nicht mehrere!).
+- Die Sequenz wird GENAU EINMAL durchlaufen: S -> O -> R -> C+/C-/C+//C-/
+- NICHT wiederholen fuer verschiedene Situationen oder Symptome.
+- NICHT mehrere SORC-Bloecke hintereinander.
+- Alle relevanten Informationen werden in die EINE Struktur integriert.
+
 REGELN FUER DAS S-O-R-C-MODELL (siehe SORC.json):
-- Alle vier Komponenten muessen vorhanden sein.
+- Alle Komponenten muessen vorhanden sein (S, O, R, C+, C-, C+/, C-/).
 - Keine Vermischung der Komponenten.
 - Rein deskriptiv, funktional, zeitlich zugeordnet.
 - Keine Erklaerungen oder Hypothesen erfinden.
-- Jede Komponente als kurzer Fliesstextsatz.
-- S (Stimulus): Aeussere und innere Ausloeser, die dem problematischen Verhalten zeitlich vorausgehen.
-- O (Organismus): Biographische Faktoren, kognitive Schemata, emotionale Disposition, somatische Faktoren.
-- R (Response): Kognitive, emotionale, physiologische und behaviorale Reaktionen.
-- C (Consequences): Differenziert nach allen vier Verstaerkungstypen (siehe unten).
+- S (Stimulus): ALLE aeusseren und inneren Ausloeser zusammenfassen, die dem problematischen Verhalten zeitlich vorausgehen.
+- O (Organismus): ALLE biographischen Faktoren, kognitiven Schemata, emotionale Dispositionen, somatische Faktoren in EINEM O-Abschnitt zusammenfassen.
+- R (Response): ALLE kognitiven, emotionalen, physiologischen und behavioralen Reaktionen in EINEM R-Abschnitt zusammenfassen. Dies umfasst vier Reaktionsebenen: kognitiv, emotional, physiologisch, behavioral.
+- C (Consequences): Differenziert nach allen vier Verstaerkungstypen in VIER separaten Zeilen (C+, C-, C+/, C-/).
+
 ZUSAETZLICHE REGELN FUER DIE KOMPONENTE C:
-- Alle vier Konsequenztypen muessen separat ausgefuellt werden.
+- Alle vier Konsequenztypen muessen separat in je EINER Zeile ausgefuellt werden.
 - Keine Zusammenfassung oder Vermischung.
 - Kurzfristige und langfristige Konsequenzen klar unterscheiden.
 - Wenn zu einem Typ keine Information vorliegt: exakt "[Angabe fehlt]".

@@ -8,7 +8,7 @@ import requests
 import queue
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from app.rag.query_engine import answer_question
-from app.docx_generator import create_comparison_docx, create_flowing_text_docx, sanitize_sensitive_text
+from app.docx_generator import create_comparison_docx, create_flowing_text_docx, sanitize_sensitive_text, format_text_as_html
 
 app = Flask(__name__)
 
@@ -103,12 +103,13 @@ def parse_sections(text):
     sections = [""] * 6  # 6 Abschnitte
 
     # Muster fuer Abschnitts-Ueberschriften (flexibel)
+    # WICHTIG: Abschnitt 5 muss "Diagnose nach ICD" erkennen (nicht "zum Zeitpunkt der Antragsstellung")
     patterns = [
         r"(?:1\.|I\.?|1\)|\*\*1\.?\*\*|##?\s*1\.?)?\s*(?:Relevante\s+)?soziodemographische\s+Daten",
         r"(?:2\.|II\.?|2\)|\*\*2\.?\*\*|##?\s*2\.?)?\s*Symptomatik\s+und\s+psychischer\s+Befund",
         r"(?:3\.|III\.?|3\)|\*\*3\.?\*\*|##?\s*3\.?)?\s*Somatischer\s+Befund",
         r"(?:4\.|IV\.?|4\)|\*\*4\.?\*\*|##?\s*4\.?)?\s*Behandlungsrelevante\s+Angaben\s+zur\s+Lebensgeschichte",  # Abschnitt 4
-        r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+nach\s+ICD",  # Abschnitt 5
+        r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+nach\s+ICD(?:-10)?",  # Abschnitt 5 (mit optionalem "-10")
         r"(?:6\.|VI\.?|6\)|\*\*6\.?\*\*|##?\s*6\.?)?\s*Behandlungsplan\s+und\s+Prognose",  # Abschnitt 6
     ]
 
@@ -424,6 +425,12 @@ def ask_compare():
     # Parsed results fuer JSON-Response
     parsed_results = [parse_sections(result) for result in sanitized_results]
 
+    # HTML-formatierte Ergebnisse für bessere Darstellung im Frontend
+    html_results = []
+    for parsed_result in parsed_results:
+        html_sections = [format_text_as_html(section) for section in parsed_result]
+        html_results.append(html_sections)
+
     # Modellnamen fuer Frontend
     model_names = [
         f"{combo['pass1']} + {combo['pass2']}" for combo in MODEL_COMBINATIONS
@@ -440,7 +447,8 @@ def ask_compare():
         "docx_base64": docx_base64,
         "sections": SECTION_HEADERS,
         "models": model_names,
-        "results": parsed_results,  # [[6 sections], [6 sections], [6 sections]]
+        "results": parsed_results,  # [[6 sections], [6 sections]] - Plain text
+        "html_results": html_results,  # [[6 sections], [6 sections]] - HTML-formatiert
         "session_id": session_id
     })
 

@@ -33,17 +33,7 @@ Ergebnisse psychodiagnostischer Testverfahren
 Aktuelle psychopharmakologische Medikation
 Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen
 
-4. Behandlungsrelevante Angaben zur Lebensgeschichte, Krankheitsanamnese, funktionales Bedingungsmodell (VT)
-Funktionales Modell:
-
-5. Diagnose zum Zeitpunkt der Antragsstellung
-Differenzialdiagnostische Angaben
-
-6. Behandlungsplan und Prognose
-Therapieziele  (mit der Patientin vereinbart)
-Individueller Behandlungsplan
-Begründung des Settings, Sitzungszahl, Frequenz
-Prognose
+5. Diagnose nach ICD-10
 
 QUALITAETSREGELN:
 - Vollstaendige Wiedergabe aller Inhalte aus PASS 1.
