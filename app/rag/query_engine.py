@@ -217,7 +217,7 @@ def answer_question(
 
     # 3) Context-Größe für RAG-Modus einstellen
     # Pass 1 braucht VIEL Context, weil alle Patientendaten + Guidelines + System-Prompt geladen werden
-    # Typischer Pass 1 Prompt: ~20.000 Token (57K Zeichen)
+    # Typischer Pass 1 Prompt: ~30.000 Token (mit 25 Chunks Patientendaten + Guidelines)
     # ABER: Sehr große Modelle (70B) haben extreme Speicheranforderungen!
     num_ctx_rag = 32768  # 32K Default - genug für die meisten Patientendaten
 
@@ -227,12 +227,17 @@ def answer_question(
         if '70b' in model_lower:
             num_ctx_rag = 8192  # Begrenzt aber nutzbar für 70B
             logger.info(f"RAG Pass 1: SEHR GROSSES Modell ({model_name}), num_ctx={num_ctx_rag} (reduziert wegen RAM/VRAM-Limits)")
-        # Große Modelle (12-34B): Guter Kompromiss
-        elif any(size in model_lower for size in ['12b', '13b', '20b', '27b', '34b']):
-            num_ctx_rag = 24576  # 24K für mittlere Modelle
-            logger.info(f"RAG Pass 1: Großes Modell ({model_name}), num_ctx={num_ctx_rag}")
+        # Mittlere Modelle (14-34B): Brauchen mehr Context für vollständige Patientendaten
+        # WICHTIG: Diese müssen VOR den kleineren Modellen geprüft werden (14b enthält auch "4b"!)
+        elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['14b', '20b', '27b', '34b']):
+            num_ctx_rag = 49152  # 48K für mittlere Modelle - verhindert Prompt-Kürzung
+            logger.info(f"RAG Pass 1: Mittleres Modell ({model_name}), num_ctx={num_ctx_rag}")
+        # Kleine-mittlere Modelle (12-13B): Guter Kompromiss
+        elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['12b', '13b']):
+            num_ctx_rag = 32768  # 32K
+            logger.info(f"RAG Pass 1: Kompakt-Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Kleine Modelle (3-9B): Können viel Context bei geringem VRAM
-        elif any(size in model_lower for size in ['3b', '4b', '7b', '8b', '9b']):
+        elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['3b', '4b', '7b', '8b', '9b']):
             num_ctx_rag = 32768  # 32K - kleine Modelle vertragen das gut
             logger.info(f"RAG Pass 1: Kleines Modell ({model_name}), num_ctx={num_ctx_rag}")
 

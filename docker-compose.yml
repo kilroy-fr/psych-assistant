@@ -8,6 +8,7 @@ services:
       - "127.0.0.1:5005:5000"  # Direkter Zugriff für Entwicklung
     environment:
       - OLLAMA_HOST=http://ollama:11434
+      - TZ=Europe/Berlin
     networks:
       - ollama-net
       - caddy-proxy-network
