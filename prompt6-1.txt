@@ -10,18 +10,25 @@ WICHTIG:
 - Fehlende Angaben exakt "[Angabe fehlt]".
 - Checkliste (qualitaets_checkliste.json): Nur Vollstaendigkeits-Reminder, keine neuen Inhalte.
 
+KRITISCHE REGEL FUER THERAPIEZIELE:
+- Therapieziele NUR dann als "vereinbart" ausgeben, wenn in den Patientendaten AUSDRUECKLICH als vereinbart/benannt/besprochen dokumentiert.
+- NICHT aus der Stoerungsanalyse ableiten oder inferieren.
+- NICHT plausible Ziele ergaenzen, auch wenn sie logisch wirken.
+- Wenn Ziele nicht explizit in den Daten genannt: "[Therapieziele in Daten nicht explizit benannt]" ausgeben.
+
 INHALTLICHE LEITPLANKEN:
-- Therapieziele muessen aus Stoerungsanalyse ableitbar sein.
-- Ziele konkret, verhaltensnah, situationsbezogen.
+- Falls Ziele vorhanden: konkret, verhaltensnah, situationsbezogen wiedergeben.
 - Prognose nur mit guenstigen / unguenstigen Faktoren, sofern genannt.
 
 ABSCHNITT 6 – STRUKTUR (exakt so ausgeben):
 
-6.1 Therapieziele (mit der Patientin vereinbart)
+6. Behandlungsplan und Prognose
 
-6.2 Individueller Behandlungsplan
+Therapieziele (mit der Patientin vereinbart)
 
-6.3 Prognose
+Individueller Behandlungsplan
+
+Prognose
 
 FORMAT:
 - Klartext.

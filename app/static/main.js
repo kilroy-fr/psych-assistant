@@ -273,10 +273,12 @@ function updateProgress(data) {
 
   // Finde die richtige Section
   let sectionKey = '';
-  if (data.section === '1-3, 5') {
-    sectionKey = '135';
+  if (data.section === '1-3') {
+    sectionKey = '13';
   } else if (data.section === '4') {
     sectionKey = '4';
+  } else if (data.section === '5') {
+    sectionKey = '5';
   } else if (data.section === '6') {
     sectionKey = '6';
   }
@@ -295,9 +297,11 @@ function updateProgress(data) {
     sectionEl.classList.add('active');
     sectionEl.classList.remove('completed');
 
-    // Zeige Pass-Nummer
-    const passLabel = data.pass === 1 ? 'Pass 1' : 'Pass 2';
-    sectionEl.querySelector('.section-pass').textContent = passLabel;
+    // Zeige Pass-Nummer (nur für 2-Pass-Abschnitte 4, 5, 6)
+    if (data.pass) {
+      const passLabel = data.pass === 1 ? 'Pass 1' : 'Pass 2';
+      sectionEl.querySelector('.section-pass').textContent = passLabel;
+    }
   }
 }
 

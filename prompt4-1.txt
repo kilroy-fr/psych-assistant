@@ -54,8 +54,15 @@ REGELN FUER DAS S-O-R-C-MODELL (siehe SORC.json):
 - Keine Erklaerungen oder Hypothesen erfinden.
 - S (Stimulus): ALLE aeusseren und inneren Ausloeser zusammenfassen, die dem problematischen Verhalten zeitlich vorausgehen.
 - O (Organismus): ALLE biographischen Faktoren, kognitiven Schemata, emotionale Dispositionen, somatische Faktoren in EINEM O-Abschnitt zusammenfassen.
-- R (Response): ALLE kognitiven, emotionalen, physiologischen und behavioralen Reaktionen in EINEM R-Abschnitt zusammenfassen. Dies umfasst vier Reaktionsebenen: kognitiv, emotional, physiologisch, behavioral.
+- R (Response): ALLE Reaktionen in EINEM R-Abschnitt zusammenfassen. Explizit die vier Reaktionsebenen benennen und beschreiben: 1) kognitiv (Gedanken, Bewertungen, Erwartungen), 2) emotional (Gefuehle, affektive Reaktionen), 3) physiologisch (koerperliche Reaktionen), 4) behavioral (beobachtbares Verhalten, Vermeidung).
 - C (Consequences): Differenziert nach allen vier Verstaerkungstypen in VIER separaten Zeilen (C+, C-, C+/, C-/).
+
+ZUSAETZLICHE REGELN FUER DIE KOMPONENTE R:
+- Alle vier Reaktionsebenen muessen explizit benannt und ausgefuellt werden.
+- Reihenfolge: kognitiv -> emotional -> physiologisch -> behavioral.
+- Jede Ebene muss klar erkennbar sein (z.B. "Kognitiv:", "Emotional:", "Physiologisch:", "Behavioral:" als Markierung oder durch klare Formulierung wie "Auf kognitiver Ebene...", "Emotional zeigen sich...", etc.).
+- Keine Vermischung der Ebenen.
+- Wenn zu einer Ebene keine Information vorliegt: exakt "[Angabe fehlt]".
 
 ZUSAETZLICHE REGELN FUER DIE KOMPONENTE C:
 - Alle vier Konsequenztypen muessen separat in je EINER Zeile ausgefuellt werden.
