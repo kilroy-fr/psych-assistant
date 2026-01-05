@@ -298,9 +298,9 @@ def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
 def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5=None, combo_index=None, session_id=None):
     """Generiert Abschnitt 5 (Diagnose nach ICD-10) mit 2-Pass-System.
 
-    Nutzt größere/bessere Modelle aus combo_section4_5_6 für präzise Diagnosen-Extraktion.
+    Nutzt kleineres schnelleres Modell (qwen3:8b) für Pass 1 (nur Diagnosen-Extraktion).
     """
-    pass1_model = combo_section4_5_6["pass1"]
+    pass1_model = "qwen3:8b"  # Schnelleres Modell für einfache Diagnosen-Extraktion
 
     # Pass1: Aus Cache nehmen oder neu berechnen
     if pass1_cache_section5 is not None and pass1_model in pass1_cache_section5:
@@ -478,15 +478,21 @@ def ask_compare():
 
         full_results.append(full_text)
 
-    sanitized_results = [sanitize_sensitive_text(result) for result in full_results]
+    # Post-Processing auf alle Ergebnisse anwenden (für Konsistenz zwischen Frontend und DOCX)
+    post_processed_results = []
+    for result in full_results:
+        pp_result = post_process_text(result, enable_repair=True, enable_validation=False)
+        post_processed_results.append(pp_result["text"])
 
     # DOCX erstellen (via docx_generator Modul)
+    # WICHTIG: enable_post_processing=False, da bereits oben durchgeführt
     docx_output = create_comparison_docx(
-        sanitized_results, MODEL_COMBINATIONS, SECTION_HEADERS, parse_sections
+        post_processed_results, MODEL_COMBINATIONS, SECTION_HEADERS, parse_sections,
+        enable_post_processing=False
     )
 
     # Parsed results fuer JSON-Response
-    parsed_results = [parse_sections(result) for result in sanitized_results]
+    parsed_results = [parse_sections(result) for result in post_processed_results]
 
     # HTML-formatierte Ergebnisse für bessere Darstellung im Frontend
     html_results = []
@@ -531,7 +537,8 @@ def create_text():
         return jsonify({"error": "Abschnitte oder Texte fehlen"}), 400
 
     # DOCX erstellen
-    docx_output = create_flowing_text_docx(sections, selected_texts)
+    # WICHTIG: enable_post_processing=False, da Texte vom Frontend bereits post-processed sind
+    docx_output = create_flowing_text_docx(sections, selected_texts, enable_post_processing=False)
 
     return send_file(
         docx_output,
