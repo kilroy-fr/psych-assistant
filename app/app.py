@@ -8,7 +8,15 @@ import requests
 import queue
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from app.rag.query_engine import answer_question
-from app.docx_generator import create_comparison_docx, create_flowing_text_docx, sanitize_sensitive_text, format_text_as_html
+from app.docx_generator import (
+    create_comparison_docx,
+    create_flowing_text_docx,
+    sanitize_sensitive_text,
+    format_text_as_html,
+    post_process_text,
+    validate_schema,
+    ValidationResult,
+)
 
 app = Flask(__name__)
 
@@ -30,16 +38,16 @@ file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
 debug_logger.addHandler(file_handler)
 
 # Feste Modellkombinationen (2 Kombinationen)
-# WICHTIG: Fuer Abschnitte 1-3, 5 wird nur "pass1" verwendet (1-Pass-System)
-# "pass2" wird nicht mehr fuer Abschnitte 1-3, 5 verwendet, bleibt aber fuer Kompatibilitaet
+# WICHTIG: Fuer Abschnitte 1-3 wird nur "pass1" verwendet (1-Pass-System)
+# "pass2" wird nicht mehr fuer Abschnitte 1-3 verwendet, bleibt aber fuer Kompatibilitaet
 MODEL_COMBINATIONS = [
-    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 1 (pass2 ungenutzt fuer 1-3, 5)
-    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 2 (pass2 ungenutzt fuer 1-3, 5)
+    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 1 (pass2 ungenutzt fuer 1-3)
+    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 2 (pass2 ungenutzt fuer 1-3)
 ]
 
-# Spezielle Modelle für komplexe Abschnitte 4 und 6
-# Diese nutzen größere Modelle wegen der Komplexität (Bedingungsmodell, Behandlungsplan)
-MODEL_COMBINATIONS_SECTION4_6 = [
+# Spezielle Modelle für komplexe Abschnitte 4, 5 und 6
+# Diese nutzen größere Modelle wegen der Komplexität (Bedingungsmodell, Diagnosen, Behandlungsplan)
+MODEL_COMBINATIONS_SECTION4_5_6 = [
     {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},                # Kombi 1
     {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},            # Kombi 2
 ]
@@ -65,12 +73,16 @@ def load_prompt(filename):
     except FileNotFoundError:
         return None
 
-PROMPT1 = load_prompt("prompt1.txt")  # Einziger Pass: Direkte Berichts-Erstellung (Abschnitte 1-3, 5)
+PROMPT1 = load_prompt("prompt1.txt")  # Einziger Pass: Direkte Berichts-Erstellung (Abschnitte 1-3)
 PROMPT2 = load_prompt("prompt2.txt")  # NICHT VERWENDET - nur fuer Abwaertskompatibilitaet vorhanden
 
 # Prompts für Abschnitt 4 (Lebensgeschichte/Bedingungsmodell)
 PROMPT4_PASS1 = load_prompt("prompt4-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 4
 PROMPT4_PASS2 = load_prompt("prompt4-2.txt")  # Pass 2: Berichts-Formulierung für Abschnitt 4
+
+# Prompts für Abschnitt 5 (Diagnose nach ICD-10)
+PROMPT5_PASS1 = load_prompt("prompt5-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 5
+PROMPT5_PASS2 = load_prompt("prompt5-2.txt")  # Pass 2: Berichts-Formulierung für Abschnitt 5
 
 # Prompts für Abschnitt 6 (Behandlungsplan/Prognose)
 PROMPT6_PASS1 = load_prompt("prompt6-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 6
@@ -103,9 +115,9 @@ def get_models():
 def parse_sections(text):
     """Extrahiert die 6 Abschnitte aus dem Antworttext.
 
-    WICHTIG: Fuer Abschnitte 1-3, 5 (aus prompt1.txt):
-    - Das LLM nummeriert diese als "1, 2, 3, 4" (sequenziell)
-    - Wir mappen "4. Diagnose nach ICD-10" auf die korrekte Position 5 im finalen Bericht
+    WICHTIG: Fuer Abschnitte 1-3 (aus prompt1.txt):
+    - Das LLM nummeriert diese als "1, 2, 3" (sequenziell)
+    - Abschnitte 4, 5, 6 werden separat generiert
     """
     sections = [""] * 6  # 6 Abschnitte
 
@@ -116,7 +128,7 @@ def parse_sections(text):
         r"(?:2\.|II\.?|2\)|\*\*2\.?\*\*|##?\s*2\.?)?\s*Symptomatik\s+und\s+psychischer\s+Befund",
         r"(?:3\.|III\.?|3\)|\*\*3\.?\*\*|##?\s*3\.?)?\s*Somatischer\s+Befund",
         r"(?:4\.|IV\.?|4\)|\*\*4\.?\*\*|##?\s*4\.?)?\s*Lebensgeschichte\s+und\s+(?:psychodynamische|verhaltenstherapeutische)",  # Abschnitt 4
-        r"(?:[45]\.|[IV]V?\.?|[45]\)|\*\*[45]\.?\*\*|##?\s*[45]\.?)?\s*Diagnose\s+nach\s+ICD(?:-10)?",  # Abschnitt 5 (akzeptiert "4." oder "5.")
+        r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+nach\s+ICD(?:-10)?",  # Abschnitt 5
         r"(?:6\.|VI\.?|6\)|\*\*6\.?\*\*|##?\s*6\.?)?\s*Behandlungsplan\s+und\s+Prognose",  # Abschnitt 6
     ]
 
@@ -225,7 +237,7 @@ def is_pass1_failed(result):
 def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, prompt2, pass1_cache=None, combo_index=None, session_id=None):
     """Fuehrt einen 1-Pass-Durchlauf mit einer Modellkombination aus.
 
-    WICHTIG: Fuer Abschnitte 1-3, 5 wird nur Pass 1 ausgefuehrt. Das Ergebnis ist direkt der fertige Bericht.
+    WICHTIG: Fuer Abschnitte 1-3 wird nur Pass 1 ausgefuehrt. Das Ergebnis ist direkt der fertige Bericht.
     prompt2 wird ignoriert, da kein zweiter Pass mehr stattfindet.
 
     Args:
@@ -240,7 +252,7 @@ def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, 
     if pass1_cache is not None and pass1_model in pass1_cache:
         final_answer = pass1_cache[pass1_model]
     else:
-        send_progress(session_id, {"combo": combo_index, "section": "1-3, 5", "pass": 1, "status": "running"})
+        send_progress(session_id, {"combo": combo_index, "section": "1-3", "pass": 1, "status": "running"})
         final_answer = run_pass1(uploaded_files, paste_text, question, prompt1, pass1_model, combo_index, session_id)
         if pass1_cache is not None:
             pass1_cache[pass1_model] = final_answer
@@ -253,12 +265,12 @@ def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, 
     return final_answer
 
 
-def run_section4(combo, combo_section4_6, uploaded_files, paste_text, pass1_cache_section4=None, combo_index=None, session_id=None):
+def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4=None, combo_index=None, session_id=None):
     """Generiert Abschnitt 4 (Lebensgeschichte/Bedingungsmodell) mit 2-Pass-System.
 
-    Nutzt größere/bessere Modelle aus combo_section4_6 für komplexere Analyse.
+    Nutzt größere/bessere Modelle aus combo_section4_5_6 für komplexere Analyse.
     """
-    pass1_model = combo_section4_6["pass1"]
+    pass1_model = combo_section4_5_6["pass1"]
 
     # Pass1: Aus Cache nehmen oder neu berechnen
     if pass1_cache_section4 is not None and pass1_model in pass1_cache_section4:
@@ -279,16 +291,46 @@ def run_section4(combo, combo_section4_6, uploaded_files, paste_text, pass1_cach
 
     # Pass2
     send_progress(session_id, {"combo": combo_index, "section": "4", "pass": 2, "status": "running"})
-    final_answer = run_pass2(pass1_answer, PROMPT4_PASS2, combo_section4_6["pass2"], combo_index, session_id)
+    final_answer = run_pass2(pass1_answer, PROMPT4_PASS2, combo_section4_5_6["pass2"], combo_index, session_id)
     return final_answer
 
 
-def run_section6(combo, combo_section4_6, uploaded_files, paste_text, pass1_cache_section6=None, combo_index=None, session_id=None):
+def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5=None, combo_index=None, session_id=None):
+    """Generiert Abschnitt 5 (Diagnose nach ICD-10) mit 2-Pass-System.
+
+    Nutzt größere/bessere Modelle aus combo_section4_5_6 für präzise Diagnosen-Extraktion.
+    """
+    pass1_model = combo_section4_5_6["pass1"]
+
+    # Pass1: Aus Cache nehmen oder neu berechnen
+    if pass1_cache_section5 is not None and pass1_model in pass1_cache_section5:
+        pass1_answer = pass1_cache_section5[pass1_model]
+    else:
+        send_progress(session_id, {"combo": combo_index, "section": "5", "pass": 1, "status": "running"})
+        pass1_answer = run_pass1(
+            uploaded_files, paste_text,
+            "Analysiere die Patientendaten für Abschnitt 5 (Diagnose nach ICD-10).",
+            PROMPT5_PASS1, pass1_model, combo_index, session_id
+        )
+        if pass1_cache_section5 is not None:
+            pass1_cache_section5[pass1_model] = pass1_answer
+
+    # Bei Pass1-Fehler Pass2 überspringen
+    if is_pass1_failed(pass1_answer):
+        return pass1_answer
+
+    # Pass2
+    send_progress(session_id, {"combo": combo_index, "section": "5", "pass": 2, "status": "running"})
+    final_answer = run_pass2(pass1_answer, PROMPT5_PASS2, combo_section4_5_6["pass2"], combo_index, session_id)
+    return final_answer
+
+
+def run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6=None, combo_index=None, session_id=None):
     """Generiert Abschnitt 6 (Behandlungsplan/Prognose) mit 2-Pass-System.
 
-    Nutzt größere/bessere Modelle aus combo_section4_6 für komplexere Analyse.
+    Nutzt größere/bessere Modelle aus combo_section4_5_6 für komplexere Analyse.
     """
-    pass1_model = combo_section4_6["pass1"]
+    pass1_model = combo_section4_5_6["pass1"]
 
     # Pass1: Aus Cache nehmen oder neu berechnen
     if pass1_cache_section6 is not None and pass1_model in pass1_cache_section6:
@@ -309,7 +351,7 @@ def run_section6(combo, combo_section4_6, uploaded_files, paste_text, pass1_cach
 
     # Pass2
     send_progress(session_id, {"combo": combo_index, "section": "6", "pass": 2, "status": "running"})
-    final_answer = run_pass2(pass1_answer, PROMPT6_PASS2, combo_section4_6["pass2"], combo_index, session_id)
+    final_answer = run_pass2(pass1_answer, PROMPT6_PASS2, combo_section4_5_6["pass2"], combo_index, session_id)
     return final_answer
 
 
@@ -347,8 +389,8 @@ def progress_stream(session_id):
 def ask_compare():
     """Fuehrt alle 2 Modellkombinationen aus und gibt DOCX und JSON zurueck.
 
-    WICHTIG: Abschnitte 1-3, 5 werden nur mit 1 Pass generiert (direkt fertiger Bericht).
-             Abschnitte 4 und 6 behalten das 2-Pass-System.
+    WICHTIG: Abschnitte 1-3 werden nur mit 1 Pass generiert (direkt fertiger Bericht).
+             Abschnitte 4, 5 und 6 behalten das 2-Pass-System.
     """
     import uuid
 
@@ -357,26 +399,27 @@ def ask_compare():
     paste_text = request.form.get("paste_text", "").strip()
     session_id = request.form.get("session_id", str(uuid.uuid4()))
 
-    if not PROMPT1 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
+    if not PROMPT1 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT5_PASS1 or not PROMPT5_PASS2 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
         return jsonify({"error": "Prompts nicht gefunden"}), 500
 
     # Caches fuer Pass1-Ergebnisse (fuer jede Abschnittsgruppe separat)
-    pass1_cache = {}  # Fuer Abschnitte 1-3, 5 (wird nur einmal berechnet pro Modell, da nur 1 Pass)
+    pass1_cache = {}  # Fuer Abschnitte 1-3 (wird nur einmal berechnet pro Modell, da nur 1 Pass)
     pass1_cache_section4 = {}  # Fuer Abschnitt 4 (2-Pass-System)
+    pass1_cache_section5 = {}  # Fuer Abschnitt 5 (2-Pass-System)
     pass1_cache_section6 = {}  # Fuer Abschnitt 6 (2-Pass-System)
 
     # Vollstaendige Ergebnisse: Pro Kombination ein String mit allen 6 Abschnitten
     full_results = []
 
     for i, combo in enumerate(MODEL_COMBINATIONS, 1):
-        # Hole entsprechende Kombination für Abschnitte 4 und 6
-        combo_section4_6 = MODEL_COMBINATIONS_SECTION4_6[i-1]
+        # Hole entsprechende Kombination für Abschnitte 4, 5 und 6
+        combo_section4_5_6 = MODEL_COMBINATIONS_SECTION4_5_6[i-1]
 
         send_progress(session_id, {"combo": i, "section": "start", "status": "starting"})
 
-        # Abschnitte 1-3, 5 generieren (1-Pass-System: direkt fertiger Bericht)
+        # Abschnitte 1-3 generieren (1-Pass-System: direkt fertiger Bericht)
         # PROMPT2 wird nicht mehr verwendet
-        result_135 = run_model_combination(
+        result_13 = run_model_combination(
             combo, uploaded_files, paste_text, question, PROMPT1, None,
             pass1_cache=pass1_cache, combo_index=i, session_id=session_id
         )
@@ -387,7 +430,15 @@ def ask_compare():
                 f.stream.seek(0)
 
         # Abschnitt 4 separat generieren (mit größeren Modellen)
-        result_4 = run_section4(combo, combo_section4_6, uploaded_files, paste_text, pass1_cache_section4, combo_index=i, session_id=session_id)
+        result_4 = run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4, combo_index=i, session_id=session_id)
+
+        # Dateizeiger zurücksetzen
+        for f in uploaded_files:
+            if hasattr(f, 'stream'):
+                f.stream.seek(0)
+
+        # Abschnitt 5 separat generieren (mit größeren Modellen)
+        result_5 = run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5, combo_index=i, session_id=session_id)
 
         # Dateizeiger zurücksetzen
         for f in uploaded_files:
@@ -395,7 +446,7 @@ def ask_compare():
                 f.stream.seek(0)
 
         # Abschnitt 6 separat generieren (mit größeren Modellen)
-        result_6 = run_section6(combo, combo_section4_6, uploaded_files, paste_text, pass1_cache_section6, combo_index=i, session_id=session_id)
+        result_6 = run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6, combo_index=i, session_id=session_id)
 
         # Dateizeiger zurücksetzen für nächste Kombination
         for f in uploaded_files:
@@ -404,25 +455,25 @@ def ask_compare():
 
         send_progress(session_id, {"combo": i, "section": "done", "status": "completed"})
 
-        # Parse result_135 um Abschnitte 1-3 und 5 zu extrahieren
-        sections_135 = parse_sections(result_135)
+        # Parse result_13 um Abschnitte 1-3 zu extrahieren
+        sections_13 = parse_sections(result_13)
 
         # Alle 6 Abschnitte in korrekter Reihenfolge zusammenstellen
-        # sections_135[0] = Abschnitt 1
-        # sections_135[1] = Abschnitt 2
-        # sections_135[2] = Abschnitt 3
-        # sections_135[3] = Abschnitt 5 (war im ursprünglichen parse_sections an Position 3)
+        # sections_13[0] = Abschnitt 1
+        # sections_13[1] = Abschnitt 2
+        # sections_13[2] = Abschnitt 3
         # result_4 = Abschnitt 4
+        # result_5 = Abschnitt 5
         # result_6 = Abschnitt 6
 
         # Zusammenführen in Reihenfolge 1, 2, 3, 4, 5, 6
         full_text = "\n\n".join([
-            sections_135[0],  # Abschnitt 1
-            sections_135[1],  # Abschnitt 2
-            sections_135[2],  # Abschnitt 3
-            result_4,         # Abschnitt 4
-            sections_135[3],  # Abschnitt 5
-            result_6          # Abschnitt 6
+            sections_13[0],  # Abschnitt 1
+            sections_13[1],  # Abschnitt 2
+            sections_13[2],  # Abschnitt 3
+            result_4,        # Abschnitt 4
+            result_5,        # Abschnitt 5
+            result_6         # Abschnitt 6
         ])
 
         full_results.append(full_text)
