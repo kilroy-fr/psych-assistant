@@ -101,7 +101,12 @@ def get_models():
 
 
 def parse_sections(text):
-    """Extrahiert die 6 Abschnitte aus dem Antworttext."""
+    """Extrahiert die 6 Abschnitte aus dem Antworttext.
+
+    WICHTIG: Fuer Abschnitte 1-3, 5 (aus prompt1.txt):
+    - Das LLM nummeriert diese als "1, 2, 3, 4" (sequenziell)
+    - Wir mappen "4. Diagnose nach ICD-10" auf die korrekte Position 5 im finalen Bericht
+    """
     sections = [""] * 6  # 6 Abschnitte
 
     # Muster fuer Abschnitts-Ueberschriften (flexibel)
@@ -111,7 +116,7 @@ def parse_sections(text):
         r"(?:2\.|II\.?|2\)|\*\*2\.?\*\*|##?\s*2\.?)?\s*Symptomatik\s+und\s+psychischer\s+Befund",
         r"(?:3\.|III\.?|3\)|\*\*3\.?\*\*|##?\s*3\.?)?\s*Somatischer\s+Befund",
         r"(?:4\.|IV\.?|4\)|\*\*4\.?\*\*|##?\s*4\.?)?\s*Lebensgeschichte\s+und\s+(?:psychodynamische|verhaltenstherapeutische)",  # Abschnitt 4
-        r"(?:5\.|V\.?|5\)|\*\*5\.?\*\*|##?\s*5\.?)?\s*Diagnose\s+nach\s+ICD(?:-10)?",  # Abschnitt 5 (mit optionalem "-10")
+        r"(?:[45]\.|[IV]V?\.?|[45]\)|\*\*[45]\.?\*\*|##?\s*[45]\.?)?\s*Diagnose\s+nach\s+ICD(?:-10)?",  # Abschnitt 5 (akzeptiert "4." oder "5.")
         r"(?:6\.|VI\.?|6\)|\*\*6\.?\*\*|##?\s*6\.?)?\s*Behandlungsplan\s+und\s+Prognose",  # Abschnitt 6
     ]
 

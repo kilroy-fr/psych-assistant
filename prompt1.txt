@@ -21,18 +21,17 @@ DOKUMENTEN-ROLLEN:
 
 QUELLEN-HIERARCHIE:
 1. Struktur-Leitfaden (PTV3) = verbindliche Struktur (hoechste Prioritaet).
-2. Befund-Schema (psychopathologischer_befund.json) = Struktur fuer Abschnitt 2.3.
-3. SORC-Schema (SORC.json) = Struktur fuer Abschnitt 4.2 (nur als Vollstaendigkeits-Reminder, keine neuen Inhalte).
-4. Checkliste (qualitaets_checkliste.json) = nur Vollstaendigkeits-Check, keine neuen Inhalte.
-5. Patientendaten = einzige inhaltliche Quelle.
+2. Befund-Schema (psychopathologischer_befund.json) = Struktur fuer Abschnitt 2 (Psychopathologischer Befund).
+3. Checkliste (qualitaets_checkliste.json) = nur Vollstaendigkeits-Check, keine neuen Inhalte.
+4. Patientendaten = einzige inhaltliche Quelle.
 
 VT-SPEZIFISCH:
 - Verhaltenstherapie (VT) bei Erwachsenen.
 - Keine psychodynamischen Interpretationen erfinden.
 - Wenn keine Information vorhanden ist: exakt "[Angabe fehlt]".
 
-KRITISCHE REGEL FUER ABSCHNITT 5 (Diagnose nach ICD-10):
-- Abschnitt 5 ist OBLIGATORISCH und MUSS mit Diagnosen gefuellt werden!
+KRITISCHE REGEL FUER ABSCHNITT 4 (Diagnose nach ICD-10):
+- Abschnitt 4 ist OBLIGATORISCH und MUSS mit Diagnosen gefuellt werden!
 - Extrahiere ALLE ICD-10 Diagnosen aus den Patientendaten.
 - Format je Diagnose: Vollstaendiger ICD-Code + offizielle Bezeichnung (z.B. "F32.1 Mittelgradige depressive Episode")
 - Haupt- und Nebendiagnosen kennzeichnen, falls in Daten unterschieden.
@@ -62,7 +61,7 @@ Relevante somatische Befunde und Erkrankungen
 Aktuelle psychopharmakologische Medikation
 Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen
 
-5. Diagnose nach ICD-10
+4. Diagnose nach ICD-10
 [Hier ALLE Diagnosen einsetzen - siehe KRITISCHE REGEL oben!]
 
 QUALITAETSREGELN:
