@@ -8,6 +8,7 @@ WICHTIG:
 - Keine neuen Ziele oder Massnahmen erfinden.
 - Nur das, was aus den Patientendaten explizit hervorgeht.
 - Fehlende Angaben exakt "[Angabe fehlt]".
+- Checkliste (qualitaets_checkliste.json): Nur Vollstaendigkeits-Reminder, keine neuen Inhalte.
 
 INHALTLICHE LEITPLANKEN:
 - Therapieziele muessen aus Stoerungsanalyse ableitbar sein.
@@ -24,7 +25,7 @@ ABSCHNITT 6 – STRUKTUR (exakt so ausgeben):
 
 FORMAT:
 - Klartext.
-- Jeder Unterpunkt als kurzer Fliesstextsatz oder Satzgruppe.
-- Keine Nummerierung (kommt erst in Pass 2).
+- Jeder Unterpunkt als kurzer Fliesstextsatz oder Satzgruppe; jede Zielaussage in eigener Zeile/Satz.
+- Keine Nummerierung (kommt erst in Pass 2), Reihenfolge aus den Patientendaten beibehalten.
 
 JETZT PASS 1 FUER ABSCHNITT 6 BEGINNEN.

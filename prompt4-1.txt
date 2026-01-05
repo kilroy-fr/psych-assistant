@@ -8,7 +8,7 @@ WICHTIG:
 - KEINE Interpretationen, KEINE Ableitungen.
 - Ausschliesslich Informationen aus den Patientendaten.
 - Fehlende Angaben exakt mit "[Angabe fehlt]" kennzeichnen.
-- Keine Namen oder Orte: Personen als "Frau X." / "Herr X.", Orte als "F." ersetzen.
+- Nur echte Personen- und Ortsnamen anonymisieren: Personen als "Frau X." / "Herr X.", Orte als "F." ersetzen. Neutrale Rollen oder allgemeine Orte (z.B. Arbeitsplatz, Schule, Klinik, Kindheit) nicht pauschal mit "F." ersetzen.
 
 QUELLENREGEL:
 - Struktur: PTV-3 (hoeher priorisiert).

@@ -7,7 +7,7 @@ GRUNDLAGE:
 - Verwende ausschliesslich die Zuordnungen aus PASS 1.
 - Keine Hinzufuegungen, keine Ableitungen, keine Interpretationen ueber PASS 1 hinaus.
 - Fehlende Inhalte bleiben exakt "[Angabe fehlt]".
-- Keine Namen, Vornamen oder Ortsnamen. Wenn in PASS 1 vorhanden, ersetze Personen mit "Frau X." oder "Herr X." und Orte mit "F.".
+- Nur echte Personen- und Ortsnamen anonymisieren: Wenn in PASS 1 vorhanden, ersetze Personen mit "Frau X." oder "Herr X." und Orte mit "F.". Neutrale Rollen oder allgemeine Orte (z.B. Arbeitsplatz, Schule, Klinik, Kindheit) nicht pauschal mit "F." ersetzen.
 
 KRITISCHE REGEL FUER ABSCHNITT 5 (Diagnose nach ICD-10):
 - Abschnitt 5 ist OBLIGATORISCH und MUSS vollstaendig aus PASS 1 uebernommen werden!

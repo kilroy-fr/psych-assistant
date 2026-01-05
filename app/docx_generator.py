@@ -75,7 +75,6 @@ SENSITIVE_PATTERNS = [
     (re.compile(r"\b(Name|Vorname|Nachname|Geburtsname)\b\s*[:\-]\s*[^\n]+"), r"\1: X."),
     (re.compile(r"\b(Ort|Wohnort|Geburtsort|Adresse|Straße|Strasse|Stadt|PLZ)\b\s*[:\-]\s*[^\n]+"), r"\1: F."),
     (re.compile(r"\b[A-ZÄÖÜ]\.\s*[A-ZÄÖÜ]\.\b"), "X."),
-    (re.compile(r"\b(in|aus|bei|nach|von|im|am)\s+[A-ZÄÖÜ][a-zäöüß-]+"), r"\1 F."),
 ]
 
 

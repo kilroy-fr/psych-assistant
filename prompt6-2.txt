@@ -7,10 +7,11 @@ GRUNDLAGE:
 - Ausschliesslich die Inhalte aus PASS 1.
 - Keine Ergaenzungen, keine Interpretationen.
 - Fehlende Inhalte bleiben "[Angabe fehlt]".
+- Checkliste (qualitaets_checkliste.json): Nur Vollstaendigkeits-Reminder, keine neuen Inhalte.
 
 FORMATVORGABEN:
 - Kein Markdown.
-- Unter "Therapieziele (mit der Patientin vereinbart)" zwingend nummerierte Zeilen.
+- Unter "Therapieziele (mit der Patientin vereinbart)" zwingend nummerierte Zeilen in der Reihenfolge der Ziele aus PASS 1; keine neuen Ziele erfinden oder umsortieren.
 - Sonst reiner Fliesstext.
 - Reihenfolge exakt einhalten.
 
