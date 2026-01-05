@@ -30,10 +30,11 @@ file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
 debug_logger.addHandler(file_handler)
 
 # Feste Modellkombinationen (2 Kombinationen)
-# Beide teilen sich Pass1 (qwen3:14b) für Effizienz
+# WICHTIG: Fuer Abschnitte 1-3, 5 wird nur "pass1" verwendet (1-Pass-System)
+# "pass2" wird nicht mehr fuer Abschnitte 1-3, 5 verwendet, bleibt aber fuer Kompatibilitaet
 MODEL_COMBINATIONS = [
-    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 1
-    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 2 (nutzt Pass1 von Kombi 1)
+    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 1 (pass2 ungenutzt fuer 1-3, 5)
+    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 2 (pass2 ungenutzt fuer 1-3, 5)
 ]
 
 # Spezielle Modelle für komplexe Abschnitte 4 und 6
@@ -54,7 +55,7 @@ SECTION_HEADERS = [
     "Behandlungsplan und Prognose",                                             # 6
 ]
 
-# Prompts aus Dateien laden (2-Pass-System)
+# Prompts aus Dateien laden
 def load_prompt(filename):
     """Lädt einen Prompt aus der angegebenen Datei"""
     prompt_path = os.path.join(os.path.dirname(__file__), "..", filename)
@@ -64,8 +65,8 @@ def load_prompt(filename):
     except FileNotFoundError:
         return None
 
-PROMPT1 = load_prompt("prompt1.txt")  # Pass 1: Fakten-Extraktion (Abschnitte 1-3, 5)
-PROMPT2 = load_prompt("prompt2.txt")  # Pass 2: Berichts-Formulierung (Abschnitte 1-3, 5)
+PROMPT1 = load_prompt("prompt1.txt")  # Einziger Pass: Direkte Berichts-Erstellung (Abschnitte 1-3, 5)
+PROMPT2 = load_prompt("prompt2.txt")  # NICHT VERWENDET - nur fuer Abwaertskompatibilitaet vorhanden
 
 # Prompts für Abschnitt 4 (Lebensgeschichte/Bedingungsmodell)
 PROMPT4_PASS1 = load_prompt("prompt4-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 4
@@ -217,33 +218,33 @@ def is_pass1_failed(result):
 
 
 def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, prompt2, pass1_cache=None, combo_index=None, session_id=None):
-    """Fuehrt einen 2-Pass-Durchlauf mit einer Modellkombination aus.
+    """Fuehrt einen 1-Pass-Durchlauf mit einer Modellkombination aus.
+
+    WICHTIG: Fuer Abschnitte 1-3, 5 wird nur Pass 1 ausgefuehrt. Das Ergebnis ist direkt der fertige Bericht.
+    prompt2 wird ignoriert, da kein zweiter Pass mehr stattfindet.
 
     Args:
         pass1_cache: Optional dict zum Cachen/Wiederverwenden von Pass1-Ergebnissen.
                      Key = Pass1-Modellname, Value = Pass1-Ergebnis.
-        combo_index: Index der Kombination (1-4) für Logging.
+        combo_index: Index der Kombination (1-2) für Logging.
         session_id: Session-ID für Fortschrittsupdates.
     """
     pass1_model = combo["pass1"]
 
-    # Pass1: Aus Cache nehmen oder neu berechnen
+    # Pass1: Aus Cache nehmen oder neu berechnen (direkt fertiger Bericht)
     if pass1_cache is not None and pass1_model in pass1_cache:
-        pass1_answer = pass1_cache[pass1_model]
+        final_answer = pass1_cache[pass1_model]
     else:
         send_progress(session_id, {"combo": combo_index, "section": "1-3, 5", "pass": 1, "status": "running"})
-        pass1_answer = run_pass1(uploaded_files, paste_text, question, prompt1, pass1_model, combo_index, session_id)
+        final_answer = run_pass1(uploaded_files, paste_text, question, prompt1, pass1_model, combo_index, session_id)
         if pass1_cache is not None:
-            pass1_cache[pass1_model] = pass1_answer
+            pass1_cache[pass1_model] = final_answer
 
-    # Bei Pass1-Fehler (Timeout/Error) Pass2 ueberspringen
-    if is_pass1_failed(pass1_answer):
-        return pass1_answer  # Fehlermeldung durchreichen
+    # Bei Pass1-Fehler Fehlermeldung durchreichen
+    if is_pass1_failed(final_answer):
+        return final_answer
 
-    # Pass2: Immer neu berechnen (unterschiedliche Modelle)
-    send_progress(session_id, {"combo": combo_index, "section": "1-3, 5", "pass": 2, "status": "running"})
-    final_answer = run_pass2(pass1_answer, prompt2, combo["pass2"], combo_index, session_id)
-
+    # Kein Pass2 mehr - das Ergebnis aus Pass1 ist bereits der fertige Bericht
     return final_answer
 
 
@@ -339,21 +340,25 @@ def progress_stream(session_id):
 
 @app.route("/ask-compare", methods=["POST"])
 def ask_compare():
-    """Fuehrt alle 2 Modellkombinationen aus und gibt DOCX und JSON zurueck."""
+    """Fuehrt alle 2 Modellkombinationen aus und gibt DOCX und JSON zurueck.
+
+    WICHTIG: Abschnitte 1-3, 5 werden nur mit 1 Pass generiert (direkt fertiger Bericht).
+             Abschnitte 4 und 6 behalten das 2-Pass-System.
+    """
     import uuid
 
-    question = "Analysiere die hochgeladenen Patientendaten."
+    question = "Erstelle den Bericht fuer die hochgeladenen Patientendaten."
     uploaded_files = request.files.getlist("files")
     paste_text = request.form.get("paste_text", "").strip()
     session_id = request.form.get("session_id", str(uuid.uuid4()))
 
-    if not PROMPT1 or not PROMPT2 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
+    if not PROMPT1 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
         return jsonify({"error": "Prompts nicht gefunden"}), 500
 
     # Caches fuer Pass1-Ergebnisse (fuer jede Abschnittsgruppe separat)
-    pass1_cache = {}  # Fuer Abschnitte 1-3, 5
-    pass1_cache_section4 = {}  # Fuer Abschnitt 4
-    pass1_cache_section6 = {}  # Fuer Abschnitt 6
+    pass1_cache = {}  # Fuer Abschnitte 1-3, 5 (wird nur einmal berechnet pro Modell, da nur 1 Pass)
+    pass1_cache_section4 = {}  # Fuer Abschnitt 4 (2-Pass-System)
+    pass1_cache_section6 = {}  # Fuer Abschnitt 6 (2-Pass-System)
 
     # Vollstaendige Ergebnisse: Pro Kombination ein String mit allen 6 Abschnitten
     full_results = []
@@ -364,9 +369,10 @@ def ask_compare():
 
         send_progress(session_id, {"combo": i, "section": "start", "status": "starting"})
 
-        # Abschnitte 1-3, 5 generieren (Standard-Workflow mit schnelleren Modellen)
+        # Abschnitte 1-3, 5 generieren (1-Pass-System: direkt fertiger Bericht)
+        # PROMPT2 wird nicht mehr verwendet
         result_135 = run_model_combination(
-            combo, uploaded_files, paste_text, question, PROMPT1, PROMPT2,
+            combo, uploaded_files, paste_text, question, PROMPT1, None,
             pass1_cache=pass1_cache, combo_index=i, session_id=session_id
         )
 
