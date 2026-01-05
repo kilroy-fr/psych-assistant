@@ -400,14 +400,16 @@ def post_process_text(text, enable_repair=True, enable_validation=True):
 
     Pipeline-Schritte:
     1. Deterministische Format-Säuberung (clean_output)
-    2. Schema-Validierung (validate_schema) - optional
-    3. Schema-Reparatur (repair_schema) - optional
-    4. Sensible Daten anonymisieren (sanitize_sensitive_text)
+    2. Schema-Reparatur (repair_schema) - optional (VORSICHT: kann Abschnitte reorganisieren!)
+    3. Schema-Validierung (validate_schema) - optional
+    4. Nummerierung hinzufügen (add_section_numbering) - immer
+    5. Sensible Daten anonymisieren (sanitize_sensitive_text) - immer
 
     Args:
         text: Der zu verarbeitende Text
-        enable_repair: Ob automatische Reparaturen durchgeführt werden sollen
-        enable_validation: Ob Validierung durchgeführt werden soll
+        enable_repair: Ob automatische Reparaturen durchgeführt werden sollen (Standard: True)
+                       WARNUNG: repair_schema reorganisiert den gesamten Text!
+        enable_validation: Ob Validierung durchgeführt werden soll (Standard: True)
 
     Returns:
         dict: {
@@ -443,10 +445,84 @@ def post_process_text(text, enable_repair=True, enable_validation=True):
         validation_result = validate_schema(result["text"])
         result["validation"] = validation_result
 
-    # Schritt 4: Sensible Daten anonymisieren (immer durchführen)
+    # Schritt 4: Nummerierung hinzufügen (immer durchführen)
+    result["text"] = add_section_numbering(result["text"])
+
+    # Schritt 5: Sensible Daten anonymisieren (immer durchführen)
     result["text"] = sanitize_sensitive_text(result["text"])
 
     return result
+
+
+def add_section_numbering(text):
+    """Fügt Nummerierung zu Überschriften hinzu basierend auf Schema.
+
+    Hauptabschnitte: 1, 2, 3, 4, 5, 6
+    Unterabschnitte: 1.1, 2.1, 2.2, etc.
+
+    Args:
+        text: Der Text mit Überschriften
+
+    Returns:
+        str: Text mit nummerierten Überschriften
+    """
+    if not text or not SCHEMA:
+        return text
+
+    lines = text.splitlines()
+    result_lines = []
+
+    # Tracking für aktuelle Abschnittsnummer
+    current_main_section = None
+    subsection_counters = {}  # {section_id: counter}
+
+    for line in lines:
+        cleaned = line.strip()
+        if not cleaned:
+            result_lines.append(line)
+            continue
+
+        # Prüfe ob es eine Überschrift ist
+        heading_level = detect_heading_level(cleaned)
+
+        if heading_level == 2:
+            # Hauptüberschrift - finde Schema-Abschnitt
+            for section in SCHEMA.get("sections", []):
+                if normalize_heading(section["title"]) == normalize_heading(cleaned):
+                    current_main_section = section["id"]
+                    subsection_counters[current_main_section] = 0
+
+                    # Entferne existierende Nummerierung
+                    clean_title = re.sub(r"^(?:\d+\.?\d*\.?\s*)?(.+)$", r"\1", cleaned.strip())
+
+                    # Füge neue Nummerierung hinzu
+                    numbered_title = f"{section['id']}. {clean_title}"
+                    result_lines.append(numbered_title)
+                    break
+            else:
+                # Unbekannte Überschrift - unverändert lassen
+                result_lines.append(line)
+
+        elif heading_level == 3:
+            # Unterüberschrift
+            if current_main_section:
+                subsection_counters[current_main_section] += 1
+                counter = subsection_counters[current_main_section]
+
+                # Entferne existierende Nummerierung
+                clean_title = re.sub(r"^(?:\d+\.?\d*\.?\s*)?(.+)$", r"\1", cleaned.strip())
+
+                # Füge neue Nummerierung hinzu
+                numbered_title = f"{current_main_section}.{counter} {clean_title}"
+                result_lines.append(numbered_title)
+            else:
+                # Keine aktive Hauptüberschrift - unverändert lassen
+                result_lines.append(line)
+        else:
+            # Normaler Text oder unbekannte Überschrift
+            result_lines.append(line)
+
+    return "\n".join(result_lines)
 
 
 def sanitize_sensitive_text(text):

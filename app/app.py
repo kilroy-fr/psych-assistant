@@ -479,9 +479,11 @@ def ask_compare():
         full_results.append(full_text)
 
     # Post-Processing auf alle Ergebnisse anwenden (für Konsistenz zwischen Frontend und DOCX)
+    # WICHTIG: enable_repair=False, da repair_schema() den gesamten Text reorganisiert und Abschnitte verlieren kann
+    # Nur Format-Säuberung und Anonymisierung
     post_processed_results = []
     for result in full_results:
-        pp_result = post_process_text(result, enable_repair=True, enable_validation=False)
+        pp_result = post_process_text(result, enable_repair=False, enable_validation=False)
         post_processed_results.append(pp_result["text"])
 
     # DOCX erstellen (via docx_generator Modul)
