@@ -139,7 +139,7 @@ def normalize_heading(text):
         text: Der zu normalisierende Text
 
     Returns:
-        str: Normalisierter Text (lowercase, keine Nummerierung, kein extra whitespace)
+        str: Normalisierter Text (lowercase, keine Nummerierung, kein extra whitespace, normalisierte Umlaute)
     """
     # Entferne Nummerierung am Anfang (z.B. "2.1 ", "4.2. ", "6.1 ", etc.)
     pattern = r"^(?:\d+\.?\d*\.?\s*)?(.+)$"
@@ -147,8 +147,19 @@ def normalize_heading(text):
     if match:
         text = match.group(1).strip()
 
-    # Lowercase und normalisiere Whitespace (mehrfache Leerzeichen -> eins)
-    return re.sub(r'\s+', ' ', text.lower().strip())
+    # Lowercase
+    text = text.lower().strip()
+
+    # Normalisiere Umlaute (ä->ae, ö->oe, ü->ue, ß->ss)
+    # Dies macht den Vergleich robust gegen unterschiedliche Umlaut-Schreibweisen
+    umlaut_map = {
+        'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss'
+    }
+    for umlaut, replacement in umlaut_map.items():
+        text = text.replace(umlaut, replacement)
+
+    # Normalisiere Whitespace (mehrfache Leerzeichen -> eins)
+    return re.sub(r'\s+', ' ', text)
 
 
 def build_heading_synonyms():
@@ -557,14 +568,31 @@ def detect_heading_level(text):
         int oder None: 2 (h2/Heading 2), 3 (h3/Heading 3) oder None
     """
     cleaned = text.strip()
+
+    # WICHTIG: Nur kurze Texte können Überschriften sein
+    # Wenn der Text länger als 200 Zeichen ist, ist es sicher kein Heading
+    if len(cleaned) > 200:
+        return None
+
+    # KRITISCH: Prüfe ZUERST auf Doppelpunkt - BEVOR Schema-Matching
+    # Grund: "2.2 Ergebnisse...: Die BDI-II..." würde sonst als Heading erkannt
+    # Heuristik: Wenn nach dem Doppelpunkt mehr als 40 Zeichen folgen, ist es Fließtext
+    if ":" in cleaned:
+        parts = cleaned.split(":", 1)
+        if len(parts) == 2 and len(parts[1].strip()) > 40:
+            # Das ist vermutlich "Überschrift: langer Fließtext"
+            return None
+
+    # Normalisiere für Vergleich
     normalized_input = normalize_heading(cleaned)
 
     # Exakte Übereinstimmung mit Schema (case-insensitive, whitespace-tolerant)
     for heading, level in HEADING_MAP.items():
         normalized_heading = normalize_heading(heading)
 
-        # Exakter Match oder der Input enthält die Überschrift
-        if normalized_input == normalized_heading or normalized_heading in normalized_input:
+        # NUR exakter Match, NICHT "enthält"
+        # Dies verhindert, dass "2.1 Auffälligkeiten: langer Text..." als Heading erkannt wird
+        if normalized_input == normalized_heading:
             return level
 
     return None
@@ -578,6 +606,9 @@ def _replace_placeholder_with_text(doc, placeholder, text):
     - Unterüberschriften: Heading 3
     - Sub-Unterüberschriften: Heading 4
     - Normaler Text: Normal
+
+    WICHTIG: Überschriften, die bereits im Template als Heading 1 existieren,
+    werden NICHT nochmal eingefügt (verhindert Duplikate).
     """
     for paragraph in doc.paragraphs:
         if paragraph.text.strip() == placeholder:
@@ -591,6 +622,13 @@ def _replace_placeholder_with_text(doc, placeholder, text):
             if not lines:
                 _insert_paragraph_after(anchor, "[Angabe fehlt]")
             else:
+                # Sammle alle existierenden Heading 1/2 Überschriften im Dokument
+                existing_headings = set()
+                for p in doc.paragraphs:
+                    if p.style.name in ["Heading 1", "Heading 2"]:
+                        normalized = normalize_heading(p.text)
+                        existing_headings.add(normalized)
+
                 for line in lines:
                     cleaned = line.strip()
                     if not cleaned:
@@ -599,7 +637,13 @@ def _replace_placeholder_with_text(doc, placeholder, text):
 
                     # Erkenne Überschriftenebene
                     heading_level = detect_heading_level(cleaned)
+
+                    # Prüfe ob diese Überschrift bereits im Dokument existiert
                     if heading_level == 2:
+                        normalized_current = normalize_heading(cleaned)
+                        if normalized_current in existing_headings:
+                            # Überspringe diese Zeile - Duplikat!
+                            continue
                         style = "Heading 2"
                     elif heading_level == 3:
                         style = "Heading 3"
@@ -615,14 +659,57 @@ def _replace_placeholder_with_text(doc, placeholder, text):
 
 
 def _remove_leading_heading(text, heading):
+    """Entfernt die führende Überschrift aus dem Text.
+
+    Prüft normalisiert (ohne Nummerierung und case-insensitive), um
+    Überschriften wie "1. Relevante soziodemographische Daten" zu erkennen,
+    wenn heading="Relevante soziodemographische Daten".
+
+    Behandelt zwei Fälle:
+    1. Überschrift steht in separater Zeile: "1. Relevante...\nFrau X..."
+    2. Überschrift am Anfang der ersten Zeile: "1. Relevante... Frau X..."
+    """
     if not text or not heading:
         return text
 
     lines = [ln.rstrip() for ln in text.splitlines()]
     while lines and not lines[0].strip():
         lines.pop(0)
-    if lines and lines[0].strip() == heading:
+
+    if not lines:
+        return text
+
+    first_line = lines[0].strip()
+    normalized_heading = normalize_heading(heading)
+
+    # Fall 1: Erste Zeile ist EXAKT die Überschrift (normalisiert)
+    normalized_first = normalize_heading(first_line)
+    if normalized_first == normalized_heading:
         lines = lines[1:]
+        # Entferne auch folgende Leerzeilen
+        while lines and not lines[0].strip():
+            lines.pop(0)
+        return "\n".join(lines)
+
+    # Fall 2: Erste Zeile BEGINNT mit der Überschrift
+    # z.B. "Relevante soziodemographische Daten Frau X. ist..."
+    # Suche nach der Überschrift am Anfang (mit/ohne Nummerierung)
+    import re
+    # Pattern: Optional "1." oder "1 " am Anfang, dann die Überschrift
+    pattern = r'^(?:\d+\.?\s*)?' + re.escape(heading)
+    match = re.match(pattern, first_line, re.IGNORECASE)
+    if match:
+        # Entferne den Match-Teil vom Anfang der ersten Zeile
+        remaining = first_line[match.end():].strip()
+        if remaining:
+            # Es gibt noch Text nach der Überschrift in der gleichen Zeile
+            lines[0] = remaining
+        else:
+            # Nur die Überschrift war in der Zeile
+            lines = lines[1:]
+            while lines and not lines[0].strip():
+                lines.pop(0)
+
     return "\n".join(lines)
 
 
@@ -805,10 +892,12 @@ def create_flowing_text_docx(sections, selected_texts, enable_post_processing=Tr
 
         # Post-Processing-Pipeline anwenden (falls aktiviert)
         if enable_post_processing:
+            # WICHTIG: enable_repair=False, weil repair_schema() erwartet den KOMPLETTEN Bericht
+            # mit allen 6 Abschnitten, aber wir haben hier nur EINEN Abschnitt!
             pp_result = post_process_text(
                 section_text,
-                enable_repair=True,
-                enable_validation=False  # Validierung nur auf Gesamtdokument, nicht einzelne Abschnitte
+                enable_repair=False,  # Repair nur für Gesamtdokument, nicht einzelne Abschnitte
+                enable_validation=False
             )
             section_text = pp_result["text"]
 

@@ -38,7 +38,7 @@ WICHTIG FUER 4.1:
 - Konzentration auf stoerungsrelevante Aspekte der Biographie.
 - Klare, kompakte Saetze.
 
-4.2 Funktionales Bedingungsmodell
+4.2 Bedingungsmodell (verhaltenstherapeutisches Störungsmodell) nach dem S-O-R-C-Schema
 
 KRITISCH - EINMALIGE SORC-STRUKTUR:
 - Erstelle GENAU EINE vollstaendige SORC-Sequenz (nicht mehrere!).
