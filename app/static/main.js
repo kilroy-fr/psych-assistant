@@ -487,6 +487,10 @@ window.addEventListener('load', () => {
 // Vergleichstabelle
 // ============================================
 
+// Abschnitte mit 1-Pass-System (identische Ergebnisse in beiden Kombis)
+// Index 0=Abschnitt 1, 1=Abschnitt 2, 2=Abschnitt 3, 4=Abschnitt 5
+const SINGLE_PASS_ROWS = [0, 1, 2, 4];
+
 function renderComparisonTable(data) {
   comparisonData = data;
   selectedColumns = new Array(data.sections.length).fill(0);
@@ -502,28 +506,46 @@ function renderComparisonTable(data) {
 
   data.sections.forEach((sectionHeader, rowIdx) => {
     const tr = document.createElement("tr");
+    const isSinglePass = SINGLE_PASS_ROWS.includes(rowIdx);
 
-    for (let colIdx = 0; colIdx < numModels; colIdx++) {
+    if (isSinglePass) {
+      // Single-Pass-Abschnitte: Eine Zelle über beide Spalten
       const td = document.createElement("td");
-      td.className = "comparison-cell";
+      td.className = "comparison-cell single-pass-cell selected";
       td.dataset.row = rowIdx;
-      td.dataset.col = colIdx;
+      td.dataset.col = 0;
       td.dataset.tooltip = sectionHeader;
+      td.colSpan = numModels;
 
-      // Verwende HTML-formatierte Ergebnisse falls vorhanden, sonst Plain text
-      const cellContent = (data.html_results && data.html_results[colIdx] && data.html_results[colIdx][rowIdx])
-        ? data.html_results[colIdx][rowIdx]
-        : data.results[colIdx][rowIdx] || "";
+      // Verwende HTML-formatierte Ergebnisse falls vorhanden
+      const cellContent = (data.html_results && data.html_results[0] && data.html_results[0][rowIdx])
+        ? data.html_results[0][rowIdx]
+        : data.results[0][rowIdx] || "";
 
-      // Nutze innerHTML für HTML-Formatierung
       td.innerHTML = cellContent;
-
-      if (colIdx === 0) {
-        td.classList.add("selected");
-      }
-
-      td.addEventListener("click", () => selectCell(rowIdx, colIdx));
       tr.appendChild(td);
+    } else {
+      // 2-Pass-Abschnitte: Separate Zellen pro Modellkombination
+      for (let colIdx = 0; colIdx < numModels; colIdx++) {
+        const td = document.createElement("td");
+        td.className = "comparison-cell";
+        td.dataset.row = rowIdx;
+        td.dataset.col = colIdx;
+        td.dataset.tooltip = sectionHeader;
+
+        const cellContent = (data.html_results && data.html_results[colIdx] && data.html_results[colIdx][rowIdx])
+          ? data.html_results[colIdx][rowIdx]
+          : data.results[colIdx][rowIdx] || "";
+
+        td.innerHTML = cellContent;
+
+        if (colIdx === 0) {
+          td.classList.add("selected");
+        }
+
+        td.addEventListener("click", () => selectCell(rowIdx, colIdx));
+        tr.appendChild(td);
+      }
     }
 
     tbody.appendChild(tr);
@@ -533,6 +555,11 @@ function renderComparisonTable(data) {
 }
 
 function selectCell(rowIdx, colIdx) {
+  // Single-Pass-Zeilen haben nur eine Zelle - keine Auswahl nötig
+  if (SINGLE_PASS_ROWS.includes(rowIdx)) {
+    return;
+  }
+
   const row = document.getElementById("comparison-tbody").rows[rowIdx];
   for (let i = 0; i < row.cells.length; i++) {
     row.cells[i].classList.remove("selected");

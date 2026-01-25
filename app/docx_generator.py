@@ -406,6 +406,123 @@ def repair_schema(text):
 # C) HAUPT-POST-PROCESSING-PIPELINE
 # =============================================================================
 
+def reorganize_subsections(text):
+    """Reorganisiert Unterabschnitte basierend auf Schema-Reihenfolge.
+
+    Diese Funktion arbeitet auf Textebene und reorganisiert Subsections,
+    die entweder als Überschriften ODER als Fließtext mit Doppelpunkt formatiert sind.
+
+    Beispiel:
+    Input:  "3. Somatischer Befund\naktuelle Medikation: ...\nVorbehandlungen: ...\nBefunde: ..."
+    Output: "3. Somatischer Befund\nBefunde: ...\naktuelle Medikation: ...\nVorbehandlungen: ..."
+
+    Args:
+        text: Der zu reorganisierende Text
+
+    Returns:
+        str: Text mit reorganisierten Unterabschnitten
+    """
+    if not text or not SCHEMA:
+        return text
+
+    lines = text.splitlines()
+    result_lines = []
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        cleaned = line.strip()
+
+        # Prüfe ob dies eine Hauptüberschrift ist
+        heading_level = detect_heading_level(cleaned) if cleaned else None
+
+        if heading_level == 2:
+            # Finde Schema-Definition für diesen Hauptabschnitt
+            schema_section = None
+            for s in SCHEMA.get("sections", []):
+                if normalize_heading(s["title"]) == normalize_heading(cleaned):
+                    schema_section = s
+                    break
+
+            # Hauptüberschrift zur Ausgabe hinzufügen
+            result_lines.append(line)
+            i += 1
+
+            if not schema_section or 'subsections' not in schema_section:
+                # Kein Schema oder keine Subsections - weitermachen
+                continue
+
+            # Sammle alle Subsections und deren Inhalt
+            subsection_data = {}  # {normalized_title: [lines]}
+            current_subsection = None
+            current_subsection_lines = []
+
+            # Sammle Zeilen bis zur nächsten Hauptüberschrift
+            while i < len(lines):
+                next_line = lines[i]
+                next_cleaned = next_line.strip()
+
+                # Stop bei nächster Hauptüberschrift
+                if next_cleaned and detect_heading_level(next_cleaned) == 2:
+                    break
+
+                # Prüfe ob diese Zeile eine Subsection startet
+                matched_subsection = None
+                for schema_sub in schema_section['subsections']:
+                    sub_title = schema_sub['title']
+                    normalized_schema = normalize_heading(sub_title)
+
+                    # Prüfe auf Überschrift (Heading 3)
+                    if next_cleaned and detect_heading_level(next_cleaned) == 3:
+                        normalized_line = normalize_heading(next_cleaned)
+                        if normalized_line == normalized_schema:
+                            matched_subsection = normalized_schema
+                            break
+
+                    # Prüfe auf Fließtext-Format "Titel: Inhalt..."
+                    if ':' in next_cleaned:
+                        prefix = next_cleaned.split(':', 1)[0].strip()
+                        normalized_prefix = normalize_heading(prefix)
+                        if normalized_prefix == normalized_schema:
+                            matched_subsection = normalized_schema
+                            break
+
+                if matched_subsection:
+                    # Speichere vorherige Subsection
+                    if current_subsection and current_subsection_lines:
+                        subsection_data[current_subsection] = current_subsection_lines
+
+                    # Starte neue Subsection
+                    current_subsection = matched_subsection
+                    current_subsection_lines = [next_line]
+                else:
+                    # Füge zur aktuellen Subsection hinzu (oder zu "other" wenn keine aktiv)
+                    if current_subsection:
+                        current_subsection_lines.append(next_line)
+                    else:
+                        # Inhalt vor erster Subsection
+                        result_lines.append(next_line)
+
+                i += 1
+
+            # Speichere letzte Subsection
+            if current_subsection and current_subsection_lines:
+                subsection_data[current_subsection] = current_subsection_lines
+
+            # Füge Subsections in Schema-Reihenfolge zur Ausgabe hinzu
+            for schema_sub in schema_section['subsections']:
+                normalized_schema = normalize_heading(schema_sub['title'])
+                if normalized_schema in subsection_data:
+                    result_lines.extend(subsection_data[normalized_schema])
+
+        else:
+            # Normale Zeile - zur Ausgabe hinzufügen
+            result_lines.append(line)
+            i += 1
+
+    return '\n'.join(result_lines)
+
+
 def post_process_text(text, enable_repair=True, enable_validation=True):
     """Führt vollständige Post-Processing-Pipeline aus.
 
@@ -413,8 +530,9 @@ def post_process_text(text, enable_repair=True, enable_validation=True):
     1. Deterministische Format-Säuberung (clean_output)
     2. Schema-Reparatur (repair_schema) - optional (VORSICHT: kann Abschnitte reorganisieren!)
     3. Schema-Validierung (validate_schema) - optional
-    4. Nummerierung hinzufügen (add_section_numbering) - immer
-    5. Sensible Daten anonymisieren (sanitize_sensitive_text) - immer
+    4. Subsection-Reorganisation (reorganize_subsections) - immer
+    5. Nummerierung hinzufügen (add_section_numbering) - immer
+    6. Sensible Daten anonymisieren (sanitize_sensitive_text) - immer
 
     Args:
         text: Der zu verarbeitende Text
@@ -456,26 +574,33 @@ def post_process_text(text, enable_repair=True, enable_validation=True):
         validation_result = validate_schema(result["text"])
         result["validation"] = validation_result
 
-    # Schritt 4: Nummerierung hinzufügen (immer durchführen)
+    # Schritt 4: Subsection-Reorganisation (immer durchführen)
+    result["text"] = reorganize_subsections(result["text"])
+
+    # Schritt 5: Nummerierung hinzufügen (immer durchführen)
     result["text"] = add_section_numbering(result["text"])
 
-    # Schritt 5: Sensible Daten anonymisieren (immer durchführen)
+    # Schritt 6: Sensible Daten anonymisieren (immer durchführen)
     result["text"] = sanitize_sensitive_text(result["text"])
 
     return result
 
 
 def add_section_numbering(text):
-    """Fügt Nummerierung zu Überschriften hinzu basierend auf Schema.
+    """Fügt Nummerierung zu Überschriften hinzu und REORGANISIERT Unterabschnitte basierend auf Schema.
 
     Hauptabschnitte: 1, 2, 3, 4, 5, 6
     Unterabschnitte: 1.1, 2.1, 2.2, etc.
+
+    KRITISCH: Diese Funktion REORGANISIERT Unterabschnitte in die Schema-konforme Reihenfolge!
+    Wenn ein LLM z.B. Unterabschnitte in der Reihenfolge 3.3, 3.2, 3.1 generiert,
+    werden sie in 3.1, 3.2, 3.3 umgeordnet.
 
     Args:
         text: Der Text mit Überschriften
 
     Returns:
-        str: Text mit nummerierten Überschriften
+        str: Text mit nummerierten und reorganisierten Überschriften
     """
     if not text or not SCHEMA:
         return text
@@ -483,55 +608,127 @@ def add_section_numbering(text):
     lines = text.splitlines()
     result_lines = []
 
-    # Tracking für aktuelle Abschnittsnummer
-    current_main_section = None
-    subsection_counters = {}  # {section_id: counter}
+    # Parse den Text in Abschnitte mit Unterabschnitten
+    sections = []  # Liste von {type: 'main'/'sub'/'content', ...}
+    current_section = None
 
-    for line in lines:
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         cleaned = line.strip()
+
         if not cleaned:
-            result_lines.append(line)
+            if current_section:
+                current_section['lines'].append(line)
+            else:
+                result_lines.append(line)
+            i += 1
             continue
 
-        # Prüfe ob es eine Überschrift ist
         heading_level = detect_heading_level(cleaned)
 
         if heading_level == 2:
-            # Hauptüberschrift - finde Schema-Abschnitt
-            for section in SCHEMA.get("sections", []):
-                if normalize_heading(section["title"]) == normalize_heading(cleaned):
-                    current_main_section = section["id"]
-                    subsection_counters[current_main_section] = 0
+            # Neue Hauptüberschrift
+            if current_section:
+                sections.append(current_section)
 
-                    # Entferne existierende Nummerierung
-                    clean_title = re.sub(r"^(?:\d+\.?\d*\.?\s*)?(.+)$", r"\1", cleaned.strip())
-
-                    # Füge neue Nummerierung hinzu
-                    numbered_title = f"{section['id']}. {clean_title}"
-                    result_lines.append(numbered_title)
-                    break
-            else:
-                # Unbekannte Überschrift - unverändert lassen
-                result_lines.append(line)
+            current_section = {
+                'type': 'main',
+                'heading': cleaned,
+                'lines': [],
+                'subsections': []
+            }
+            i += 1
 
         elif heading_level == 3:
             # Unterüberschrift
-            if current_main_section:
-                subsection_counters[current_main_section] += 1
-                counter = subsection_counters[current_main_section]
+            if current_section and current_section['type'] == 'main':
+                # Sammle den Inhalt dieser Unterüberschrift
+                subsection_lines = []
+                i += 1  # Skip heading line
 
-                # Entferne existierende Nummerierung
-                clean_title = re.sub(r"^(?:\d+\.?\d*\.?\s*)?(.+)$", r"\1", cleaned.strip())
+                # Sammle alle Zeilen bis zur nächsten Überschrift
+                while i < len(lines):
+                    next_cleaned = lines[i].strip()
+                    if next_cleaned and detect_heading_level(next_cleaned) in [2, 3]:
+                        break
+                    subsection_lines.append(lines[i])
+                    i += 1
 
-                # Füge neue Nummerierung hinzu
-                numbered_title = f"{current_main_section}.{counter} {clean_title}"
-                result_lines.append(numbered_title)
+                current_section['subsections'].append({
+                    'heading': cleaned,
+                    'lines': subsection_lines
+                })
             else:
-                # Keine aktive Hauptüberschrift - unverändert lassen
-                result_lines.append(line)
+                # Kein aktiver Hauptabschnitt - als normalen Text behandeln
+                if current_section:
+                    current_section['lines'].append(line)
+                else:
+                    result_lines.append(line)
+                i += 1
         else:
-            # Normaler Text oder unbekannte Überschrift
-            result_lines.append(line)
+            # Normaler Text
+            if current_section:
+                current_section['lines'].append(line)
+            else:
+                result_lines.append(line)
+            i += 1
+
+    # Letzten Abschnitt hinzufügen
+    if current_section:
+        sections.append(current_section)
+
+    # Jetzt reorganisieren und nummerieren
+    for section in sections:
+        if section['type'] != 'main':
+            continue
+
+        # Finde Schema-Definition für diesen Hauptabschnitt
+        schema_section = None
+        for s in SCHEMA.get("sections", []):
+            if normalize_heading(s["title"]) == normalize_heading(section['heading']):
+                schema_section = s
+                break
+
+        if not schema_section:
+            # Unbekannter Abschnitt - unverändert ausgeben
+            result_lines.append(section['heading'])
+            result_lines.extend(section['lines'])
+            for subsection in section['subsections']:
+                result_lines.append(subsection['heading'])
+                result_lines.extend(subsection['lines'])
+            continue
+
+        # Nummeriere Hauptüberschrift
+        clean_title = re.sub(r"^(?:\d+\.?\d*\.?\s*)?(.+)$", r"\1", section['heading'].strip())
+        numbered_title = f"{schema_section['id']}. {clean_title}"
+        result_lines.append(numbered_title)
+
+        # Füge Inhalte vor Unterabschnitten hinzu
+        result_lines.extend(section['lines'])
+
+        # Reorganisiere Unterabschnitte basierend auf Schema
+        if 'subsections' in schema_section and section['subsections']:
+            schema_subsections = schema_section['subsections']
+
+            # Erstelle Mapping: normalized_title -> subsection_data
+            subsection_map = {}
+            for subsection in section['subsections']:
+                clean_sub_title = re.sub(r"^(?:\d+\.?\d*\.?\s*)?(.+)$", r"\1", subsection['heading'].strip())
+                normalized = normalize_heading(clean_sub_title)
+                subsection_map[normalized] = subsection
+
+            # Füge Unterabschnitte in Schema-Reihenfolge hinzu
+            for schema_subsection in schema_subsections:
+                normalized_schema = normalize_heading(schema_subsection['title'])
+
+                if normalized_schema in subsection_map:
+                    subsection_data = subsection_map[normalized_schema]
+                    clean_sub_title = re.sub(r"^(?:\d+\.?\d*\.?\s*)?(.+)$", r"\1", subsection_data['heading'].strip())
+                    numbered_sub_title = f"{schema_subsection['id']} {clean_sub_title}"
+
+                    result_lines.append(numbered_sub_title)
+                    result_lines.extend(subsection_data['lines'])
 
     return "\n".join(result_lines)
 
@@ -612,6 +809,7 @@ def _replace_placeholder_with_text(doc, placeholder, text):
     """
     for paragraph in doc.paragraphs:
         if paragraph.text.strip() == placeholder:
+            placeholder_para = paragraph  # Merke den ursprünglichen Platzhalter
             anchor = paragraph
             lines = [ln.rstrip() for ln in (text or "").splitlines()]
             while lines and not lines[0].strip():
@@ -632,7 +830,7 @@ def _replace_placeholder_with_text(doc, placeholder, text):
                 for line in lines:
                     cleaned = line.strip()
                     if not cleaned:
-                        _insert_paragraph_after(anchor, "")
+                        anchor = _insert_paragraph_after(anchor, "")
                         continue
 
                     # Erkenne Überschriftenebene
@@ -652,9 +850,11 @@ def _replace_placeholder_with_text(doc, placeholder, text):
                     else:
                         style = "Normal"
 
-                    _insert_paragraph_after(anchor, cleaned, style=style)
+                    # KRITISCH: Aktualisiere anchor nach jedem Einfügen, um korrekte Reihenfolge zu garantieren
+                    anchor = _insert_paragraph_after(anchor, cleaned, style=style)
 
-            anchor._p.getparent().remove(anchor._p)
+            # Entferne den ursprünglichen Platzhalter (nicht den aktualisierten anchor!)
+            placeholder_para._p.getparent().remove(placeholder_para._p)
             return
 
 

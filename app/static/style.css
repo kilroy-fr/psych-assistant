@@ -594,6 +594,17 @@ button:hover {
   background: #a7f3d0;
 }
 
+/* Single-Pass-Zellen (Abschnitte 1, 2, 3, 5) - über beide Spalten */
+.comparison-cell.single-pass-cell {
+  text-align: left;
+  cursor: default;
+  background: #d1fae5;
+}
+
+.comparison-cell.single-pass-cell:hover {
+  background: #d1fae5;
+}
+
 /* Text erstellen Button */
 #create-text-btn {
   margin-top: 20px;

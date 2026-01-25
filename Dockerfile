@@ -18,7 +18,6 @@ COPY prompt2.txt ./prompt2.txt
 COPY prompt4-1.txt ./prompt4-1.txt
 COPY prompt4-2.txt ./prompt4-2.txt
 COPY prompt5-1.txt ./prompt5-1.txt
-COPY prompt5-2.txt ./prompt5-2.txt
 COPY prompt6-1.txt ./prompt6-1.txt
 COPY prompt6-2.txt ./prompt6-2.txt
 
