@@ -6,6 +6,8 @@ import base64
 import logging
 import requests
 import queue
+import threading
+import time
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from app.rag.query_engine import answer_question
 from app.docx_generator import (
@@ -22,6 +24,15 @@ app = Flask(__name__)
 
 # Globaler Event-Queue für Fortschrittsupdates
 progress_queues = {}
+
+# Globaler Speicher für abgeschlossene Berechnungen (Session-ID -> Ergebnis)
+# Ermöglicht Ergebnis-Abruf nach Standby/Reconnect
+completed_results = {}
+# Status für laufende Berechnungen
+running_tasks = {}  # session_id -> {"status": "running"|"completed"|"error", "error": str|None}
+
+# Cleanup-Interval für alte Ergebnisse (1 Stunde)
+RESULT_EXPIRY_SECONDS = 3600
 
 # Debug-Logging für Zwischenergebnisse
 debug_logger = logging.getLogger("psych_debug")
@@ -81,8 +92,7 @@ PROMPT4_PASS1 = load_prompt("prompt4-1.txt")  # Pass 1: Fakten-Extraktion für A
 PROMPT4_PASS2 = load_prompt("prompt4-2.txt")  # Pass 2: Berichts-Formulierung für Abschnitt 4
 
 # Prompts für Abschnitt 5 (Diagnose nach ICD-10)
-PROMPT5_PASS1 = load_prompt("prompt5-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 5
-PROMPT5_PASS2 = load_prompt("prompt5-2.txt")  # Pass 2: Berichts-Formulierung für Abschnitt 5
+PROMPT5_PASS1 = load_prompt("prompt5-1.txt")  # Einziger Pass: Direkte Berichts-Erstellung (1-Pass-System)
 
 # Prompts für Abschnitt 6 (Behandlungsplan/Prognose)
 PROMPT6_PASS1 = load_prompt("prompt6-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 6
@@ -296,32 +306,30 @@ def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
 
 
 def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5=None, combo_index=None, session_id=None):
-    """Generiert Abschnitt 5 (Diagnose nach ICD-10) mit 2-Pass-System.
+    """Generiert Abschnitt 5 (Diagnose nach ICD-10) mit 1-Pass-System.
 
-    Nutzt kleineres schnelleres Modell (qwen3:8b) für Pass 1 (nur Diagnosen-Extraktion).
+    Nutzt qwen3:8b für direkte Berichtserstellung (einfache Diagnosen-Extraktion benötigt kein 2-Pass-System).
     """
-    pass1_model = "qwen3:8b"  # Schnelleres Modell für einfache Diagnosen-Extraktion
+    model = "qwen3:8b"  # Schnelles Modell für einfache Diagnosen-Extraktion
 
-    # Pass1: Aus Cache nehmen oder neu berechnen
-    if pass1_cache_section5 is not None and pass1_model in pass1_cache_section5:
-        pass1_answer = pass1_cache_section5[pass1_model]
+    # Einziger Pass: Aus Cache nehmen oder neu berechnen (direkt fertiger Bericht)
+    if pass1_cache_section5 is not None and model in pass1_cache_section5:
+        final_answer = pass1_cache_section5[model]
     else:
         send_progress(session_id, {"combo": combo_index, "section": "5", "pass": 1, "status": "running"})
-        pass1_answer = run_pass1(
+        final_answer = run_pass1(
             uploaded_files, paste_text,
-            "Analysiere die Patientendaten für Abschnitt 5 (Diagnose nach ICD-10).",
-            PROMPT5_PASS1, pass1_model, combo_index, session_id
+            "Erstelle Abschnitt 5 (Diagnose nach ICD-10) für die Patientendaten.",
+            PROMPT5_PASS1, model, combo_index, session_id
         )
         if pass1_cache_section5 is not None:
-            pass1_cache_section5[pass1_model] = pass1_answer
+            pass1_cache_section5[model] = final_answer
 
-    # Bei Pass1-Fehler Pass2 überspringen
-    if is_pass1_failed(pass1_answer):
-        return pass1_answer
+    # Bei Fehler Fehlermeldung durchreichen
+    if is_pass1_failed(final_answer):
+        return final_answer
 
-    # Pass2
-    send_progress(session_id, {"combo": combo_index, "section": "5", "pass": 2, "status": "running"})
-    final_answer = run_pass2(pass1_answer, PROMPT5_PASS2, combo_section4_5_6["pass2"], combo_index, session_id)
+    # Kein Pass2 mehr - das Ergebnis ist bereits der fertige Bericht
     return final_answer
 
 
@@ -385,141 +393,209 @@ def progress_stream(session_id):
     return Response(event_stream(), mimetype='text/event-stream')
 
 
+@app.route("/result/<session_id>")
+def get_result(session_id):
+    """Gibt das Ergebnis einer abgeschlossenen Berechnung zurück.
+
+    Ermöglicht Ergebnis-Abruf nach Standby/Reconnect.
+    """
+    # Prüfe ob Ergebnis vorhanden
+    if session_id in completed_results:
+        result = completed_results[session_id]
+        return jsonify({
+            "status": "completed",
+            "data": result
+        })
+
+    # Prüfe ob Berechnung noch läuft
+    if session_id in running_tasks:
+        task_info = running_tasks[session_id]
+        if task_info["status"] == "error":
+            return jsonify({
+                "status": "error",
+                "error": task_info.get("error", "Unbekannter Fehler")
+            })
+        return jsonify({
+            "status": "running"
+        })
+
+    # Session nicht gefunden
+    return jsonify({
+        "status": "not_found"
+    }), 404
+
+
+def cleanup_old_results():
+    """Entfernt alte Ergebnisse nach Ablauf der Expiry-Zeit."""
+    current_time = time.time()
+    expired_sessions = []
+
+    for session_id, result in completed_results.items():
+        if current_time - result.get("_timestamp", 0) > RESULT_EXPIRY_SECONDS:
+            expired_sessions.append(session_id)
+
+    for session_id in expired_sessions:
+        del completed_results[session_id]
+        if session_id in running_tasks:
+            del running_tasks[session_id]
+
+
+def run_computation_task(session_id, file_contents, paste_text):
+    """Führt die eigentliche Berechnung im Hintergrund-Thread aus.
+
+    Args:
+        session_id: Session-ID für Fortschrittsupdates und Ergebnis-Speicherung
+        file_contents: Liste von (filename, content_bytes) Tupeln (Dateien bereits eingelesen)
+        paste_text: Eingefügter Text
+    """
+    from werkzeug.datastructures import FileStorage
+
+    try:
+        question = "Erstelle den Bericht fuer die hochgeladenen Patientendaten."
+
+        # Rekonstruiere FileStorage-Objekte aus den Bytes
+        def create_file_storages():
+            files = []
+            for filename, content_bytes in file_contents:
+                file_obj = FileStorage(
+                    stream=io.BytesIO(content_bytes),
+                    filename=filename,
+                    content_type="application/octet-stream"
+                )
+                files.append(file_obj)
+            return files
+
+        # Caches fuer Pass1-Ergebnisse (fuer jede Abschnittsgruppe separat)
+        pass1_cache = {}
+        pass1_cache_section4 = {}
+        pass1_cache_section5 = {}
+        pass1_cache_section6 = {}
+
+        # Speichere Abschnitte pro Kombination separat
+        all_sections_by_combo = []
+
+        for i, combo in enumerate(MODEL_COMBINATIONS, 1):
+            combo_section4_5_6 = MODEL_COMBINATIONS_SECTION4_5_6[i-1]
+
+            send_progress(session_id, {"combo": i, "section": "start", "status": "starting"})
+
+            # Erstelle frische FileStorage-Objekte für diese Iteration
+            uploaded_files = create_file_storages()
+
+            result_13 = run_model_combination(
+                combo, uploaded_files, paste_text, question, PROMPT1, None,
+                pass1_cache=pass1_cache, combo_index=i, session_id=session_id
+            )
+
+            uploaded_files = create_file_storages()
+            result_4 = run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4, combo_index=i, session_id=session_id)
+
+            uploaded_files = create_file_storages()
+            result_5 = run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5, combo_index=i, session_id=session_id)
+
+            uploaded_files = create_file_storages()
+            result_6 = run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6, combo_index=i, session_id=session_id)
+
+            send_progress(session_id, {"combo": i, "section": "done", "status": "completed"})
+
+            sections_13 = parse_sections(result_13)
+            combo_sections = [
+                sections_13[0], sections_13[1], sections_13[2],
+                result_4, result_5, result_6
+            ]
+            all_sections_by_combo.append(combo_sections)
+
+        # Post-Processing
+        parsed_results = []
+        for combo_sections in all_sections_by_combo:
+            processed_sections = []
+            for section_text in combo_sections:
+                pp_result = post_process_text(section_text, enable_repair=False, enable_validation=False)
+                processed_sections.append(pp_result["text"])
+            parsed_results.append(processed_sections)
+
+        # DOCX erstellen
+        post_processed_results = ["\n\n".join(sections) for sections in parsed_results]
+        docx_output = create_comparison_docx(
+            post_processed_results, MODEL_COMBINATIONS, SECTION_HEADERS, parse_sections,
+            enable_post_processing=False
+        )
+
+        # HTML-formatierte Ergebnisse
+        html_results = []
+        for parsed_result in parsed_results:
+            html_sections = [format_text_as_html(section) for section in parsed_result]
+            html_results.append(html_sections)
+
+        model_names = [f"{combo['pass1']} + {combo['pass2']}" for combo in MODEL_COMBINATIONS]
+
+        docx_bytes = docx_output.read()
+        docx_base64 = base64.b64encode(docx_bytes).decode('utf-8')
+
+        # Ergebnis speichern für späteren Abruf (mit Timestamp für Cleanup)
+        result_data = {
+            "docx_base64": docx_base64,
+            "sections": SECTION_HEADERS,
+            "models": model_names,
+            "results": parsed_results,
+            "html_results": html_results,
+            "session_id": session_id,
+            "_timestamp": time.time()
+        }
+        completed_results[session_id] = result_data
+        running_tasks[session_id] = {"status": "completed"}
+
+        # Signalisiere Fertigstellung
+        send_progress(session_id, "DONE")
+
+        # Cleanup alter Ergebnisse
+        cleanup_old_results()
+
+    except Exception as e:
+        import traceback
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        running_tasks[session_id] = {"status": "error", "error": str(e)}
+        send_progress(session_id, {"status": "error", "error": str(e)})
+        print(f"[ERROR] Berechnung für Session {session_id} fehlgeschlagen: {error_msg}")
+
+
 @app.route("/ask-compare", methods=["POST"])
 def ask_compare():
-    """Fuehrt alle 2 Modellkombinationen aus und gibt DOCX und JSON zurueck.
+    """Startet die Berechnung im Hintergrund und gibt sofort die Session-ID zurück.
 
-    WICHTIG: Abschnitte 1-3 werden nur mit 1 Pass generiert (direkt fertiger Bericht).
-             Abschnitte 4, 5 und 6 behalten das 2-Pass-System.
+    Das Ergebnis kann später über /result/<session_id> abgerufen werden.
+    Dies ermöglicht Robustheit gegen Standby/Bildschirm-Aus.
     """
     import uuid
 
-    question = "Erstelle den Bericht fuer die hochgeladenen Patientendaten."
     uploaded_files = request.files.getlist("files")
     paste_text = request.form.get("paste_text", "").strip()
     session_id = request.form.get("session_id", str(uuid.uuid4()))
 
-    if not PROMPT1 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT5_PASS1 or not PROMPT5_PASS2 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
+    if not PROMPT1 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT5_PASS1 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
         return jsonify({"error": "Prompts nicht gefunden"}), 500
 
-    # Caches fuer Pass1-Ergebnisse (fuer jede Abschnittsgruppe separat)
-    pass1_cache = {}  # Fuer Abschnitte 1-3 (wird nur einmal berechnet pro Modell, da nur 1 Pass)
-    pass1_cache_section4 = {}  # Fuer Abschnitt 4 (2-Pass-System)
-    pass1_cache_section5 = {}  # Fuer Abschnitt 5 (2-Pass-System)
-    pass1_cache_section6 = {}  # Fuer Abschnitt 6 (2-Pass-System)
+    # Dateien einlesen (müssen vor Thread-Start eingelesen werden, da Request-Kontext sonst weg ist)
+    file_contents = []
+    for f in uploaded_files:
+        if f.filename:
+            content = f.read()
+            file_contents.append((f.filename, content))
 
-    # Vollstaendige Ergebnisse: Pro Kombination ein String mit allen 6 Abschnitten
-    full_results = []
+    # Markiere Task als laufend
+    running_tasks[session_id] = {"status": "running"}
 
-    for i, combo in enumerate(MODEL_COMBINATIONS, 1):
-        # Hole entsprechende Kombination für Abschnitte 4, 5 und 6
-        combo_section4_5_6 = MODEL_COMBINATIONS_SECTION4_5_6[i-1]
-
-        send_progress(session_id, {"combo": i, "section": "start", "status": "starting"})
-
-        # Abschnitte 1-3 generieren (1-Pass-System: direkt fertiger Bericht)
-        # PROMPT2 wird nicht mehr verwendet
-        result_13 = run_model_combination(
-            combo, uploaded_files, paste_text, question, PROMPT1, None,
-            pass1_cache=pass1_cache, combo_index=i, session_id=session_id
-        )
-
-        # Dateizeiger zurücksetzen
-        for f in uploaded_files:
-            if hasattr(f, 'stream'):
-                f.stream.seek(0)
-
-        # Abschnitt 4 separat generieren (mit größeren Modellen)
-        result_4 = run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4, combo_index=i, session_id=session_id)
-
-        # Dateizeiger zurücksetzen
-        for f in uploaded_files:
-            if hasattr(f, 'stream'):
-                f.stream.seek(0)
-
-        # Abschnitt 5 separat generieren (mit größeren Modellen)
-        result_5 = run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5, combo_index=i, session_id=session_id)
-
-        # Dateizeiger zurücksetzen
-        for f in uploaded_files:
-            if hasattr(f, 'stream'):
-                f.stream.seek(0)
-
-        # Abschnitt 6 separat generieren (mit größeren Modellen)
-        result_6 = run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6, combo_index=i, session_id=session_id)
-
-        # Dateizeiger zurücksetzen für nächste Kombination
-        for f in uploaded_files:
-            if hasattr(f, 'stream'):
-                f.stream.seek(0)
-
-        send_progress(session_id, {"combo": i, "section": "done", "status": "completed"})
-
-        # Parse result_13 um Abschnitte 1-3 zu extrahieren
-        sections_13 = parse_sections(result_13)
-
-        # Alle 6 Abschnitte in korrekter Reihenfolge zusammenstellen
-        # sections_13[0] = Abschnitt 1
-        # sections_13[1] = Abschnitt 2
-        # sections_13[2] = Abschnitt 3
-        # result_4 = Abschnitt 4
-        # result_5 = Abschnitt 5
-        # result_6 = Abschnitt 6
-
-        # Zusammenführen in Reihenfolge 1, 2, 3, 4, 5, 6
-        full_text = "\n\n".join([
-            sections_13[0],  # Abschnitt 1
-            sections_13[1],  # Abschnitt 2
-            sections_13[2],  # Abschnitt 3
-            result_4,        # Abschnitt 4
-            result_5,        # Abschnitt 5
-            result_6         # Abschnitt 6
-        ])
-
-        full_results.append(full_text)
-
-    # Post-Processing auf alle Ergebnisse anwenden (für Konsistenz zwischen Frontend und DOCX)
-    # WICHTIG: enable_repair=False, da repair_schema() den gesamten Text reorganisiert und Abschnitte verlieren kann
-    # Nur Format-Säuberung und Anonymisierung
-    post_processed_results = []
-    for result in full_results:
-        pp_result = post_process_text(result, enable_repair=False, enable_validation=False)
-        post_processed_results.append(pp_result["text"])
-
-    # DOCX erstellen (via docx_generator Modul)
-    # WICHTIG: enable_post_processing=False, da bereits oben durchgeführt
-    docx_output = create_comparison_docx(
-        post_processed_results, MODEL_COMBINATIONS, SECTION_HEADERS, parse_sections,
-        enable_post_processing=False
+    # Starte Berechnung in Hintergrund-Thread
+    thread = threading.Thread(
+        target=run_computation_task,
+        args=(session_id, file_contents, paste_text),
+        daemon=True
     )
+    thread.start()
 
-    # Parsed results fuer JSON-Response
-    parsed_results = [parse_sections(result) for result in post_processed_results]
-
-    # HTML-formatierte Ergebnisse für bessere Darstellung im Frontend
-    html_results = []
-    for parsed_result in parsed_results:
-        html_sections = [format_text_as_html(section) for section in parsed_result]
-        html_results.append(html_sections)
-
-    # Modellnamen fuer Frontend
-    model_names = [
-        f"{combo['pass1']} + {combo['pass2']}" for combo in MODEL_COMBINATIONS
-    ]
-
-    # Response als JSON mit DOCX als Base64
-    docx_bytes = docx_output.read()
-    docx_base64 = base64.b64encode(docx_bytes).decode('utf-8')
-
-    # Signalisiere Fertigstellung
-    send_progress(session_id, "DONE")
-
+    # Sofortige Rückgabe der Session-ID (Frontend pollt für Ergebnis)
     return jsonify({
-        "docx_base64": docx_base64,
-        "sections": SECTION_HEADERS,
-        "models": model_names,
-        "results": parsed_results,  # [[6 sections], [6 sections]] - Plain text
-        "html_results": html_results,  # [[6 sections], [6 sections]] - HTML-formatiert
+        "status": "started",
         "session_id": session_id
     })
 
@@ -538,9 +614,23 @@ def create_text():
     if not sections or not selected_texts:
         return jsonify({"error": "Abschnitte oder Texte fehlen"}), 400
 
+    # DEBUG: Logge empfangene Daten
+    print(f"\n[DEBUG /create-text]")
+    print(f"Anzahl sections: {len(sections)}")
+    print(f"Anzahl selected_texts: {len(selected_texts)}")
+    for i, (sec, text) in enumerate(zip(sections, selected_texts), 1):
+        preview = text[:80].replace('\n', ' ') if text else "[LEER]"
+        print(f"  {i}. {sec}: {preview}...")
+
+        # Log vollständigen Text für Abschnitte 3, 4, 6 zur Diagnose
+        if i in [3, 4, 6] and text:
+            print(f"\n[DEBUG] Vollständiger Text für Abschnitt {i}:")
+            print(text)
+            print(f"[DEBUG] Ende Abschnitt {i}\n")
+
     # DOCX erstellen
-    # WICHTIG: enable_post_processing=False, da Texte vom Frontend bereits post-processed sind
-    docx_output = create_flowing_text_docx(sections, selected_texts, enable_post_processing=False)
+    # Post-Processing aktivieren, um Formatierungsprobleme zu beheben
+    docx_output = create_flowing_text_docx(sections, selected_texts, enable_post_processing=True)
 
     return send_file(
         docx_output,

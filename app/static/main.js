@@ -22,6 +22,12 @@ let comparisonData = null;
 let selectedColumns = [];
 let eventSource = null;
 let currentSessionId = null;
+let resultPollingInterval = null;
+let isComputationRunning = false;
+
+// Polling-Konfiguration für robuste Ergebnis-Abfrage
+const RESULT_POLL_INTERVAL_MS = 3000;  // Alle 3 Sekunden
+const SSE_RECONNECT_DELAY_MS = 2000;   // 2 Sekunden vor SSE-Reconnect
 
 // ============================================
 // Panel-Management
@@ -220,6 +226,8 @@ function hideSpinner() {
     eventSource.close();
     eventSource = null;
   }
+  // Polling wird NICHT hier gestoppt - das muss explizit passieren wenn Ergebnis da ist
+  currentAbortController = null;
 }
 
 function updateTimer() {
@@ -297,8 +305,9 @@ function updateProgress(data) {
     sectionEl.classList.add('active');
     sectionEl.classList.remove('completed');
 
-    // Zeige Pass-Nummer (nur für 2-Pass-Abschnitte 4, 5, 6)
-    if (data.pass) {
+    // Zeige Pass-Nummer (nur für 2-Pass-Abschnitte 4 und 6)
+    // Abschnitt 5 nutzt jetzt 1-Pass-System
+    if (data.pass && data.section !== '5') {
       const passLabel = data.pass === 1 ? 'Pass 1' : 'Pass 2';
       sectionEl.querySelector('.section-pass').textContent = passLabel;
     }
@@ -321,6 +330,11 @@ function connectProgressStream(sessionId) {
       return;
     }
 
+    if (data.status === 'error') {
+      console.error('Berechnung fehlgeschlagen:', data.error);
+      return;
+    }
+
     updateProgress(data);
   };
 
@@ -330,8 +344,144 @@ function connectProgressStream(sessionId) {
       eventSource.close();
       eventSource = null;
     }
+    // Bei SSE-Fehler: Reconnect versuchen wenn Berechnung noch läuft
+    if (isComputationRunning && currentSessionId) {
+      console.log('SSE-Verbindung verloren, versuche Reconnect...');
+      setTimeout(() => {
+        if (isComputationRunning && currentSessionId) {
+          connectProgressStream(currentSessionId);
+        }
+      }, SSE_RECONNECT_DELAY_MS);
+    }
   };
 }
+
+// ============================================
+// Ergebnis-Polling (robust gegen Standby)
+// ============================================
+
+function startResultPolling(sessionId) {
+  stopResultPolling();
+
+  // Session im localStorage speichern für Recovery nach Seiten-Reload
+  localStorage.setItem('pendingSessionId', sessionId);
+  localStorage.setItem('pendingSessionStart', Date.now().toString());
+
+  resultPollingInterval = setInterval(() => {
+    checkForResult(sessionId);
+  }, RESULT_POLL_INTERVAL_MS);
+
+  // Sofort einmal prüfen
+  checkForResult(sessionId);
+}
+
+function stopResultPolling() {
+  if (resultPollingInterval) {
+    clearInterval(resultPollingInterval);
+    resultPollingInterval = null;
+  }
+}
+
+async function checkForResult(sessionId) {
+  try {
+    const response = await fetch(`/result/${sessionId}`);
+    const data = await response.json();
+
+    if (data.status === 'completed') {
+      // Ergebnis erhalten - Berechnung abgeschlossen
+      console.log('Ergebnis erhalten für Session:', sessionId);
+      handleComputationComplete(data.data);
+    } else if (data.status === 'error') {
+      // Fehler bei der Berechnung
+      console.error('Berechnungsfehler:', data.error);
+      handleComputationError(data.error);
+    } else if (data.status === 'not_found') {
+      // Session nicht mehr vorhanden (evtl. Server neugestartet)
+      console.warn('Session nicht gefunden:', sessionId);
+      stopResultPolling();
+      localStorage.removeItem('pendingSessionId');
+      localStorage.removeItem('pendingSessionStart');
+    }
+    // Bei status === 'running' weiterpollen
+  } catch (error) {
+    console.error('Fehler beim Abrufen des Ergebnisses:', error);
+    // Bei Netzwerkfehlern weiterpollen (könnte Standby sein)
+  }
+}
+
+function handleComputationComplete(data) {
+  isComputationRunning = false;
+  stopResultPolling();
+  localStorage.removeItem('pendingSessionId');
+  localStorage.removeItem('pendingSessionStart');
+
+  // DOCX Download-Link erstellen
+  const docxBytes = Uint8Array.from(atob(data.docx_base64), c => c.charCodeAt(0));
+  const blob = new Blob([docxBytes], {type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  const url = window.URL.createObjectURL(blob);
+  const downloadLink = document.getElementById("download-link");
+  downloadLink.href = url;
+
+  // Vergleichstabelle rendern
+  renderComparisonTable(data);
+
+  // Ergebnis-Container anzeigen
+  document.getElementById("answer-container").style.display = "block";
+
+  hideSpinner();
+}
+
+function handleComputationError(errorMessage) {
+  isComputationRunning = false;
+  stopResultPolling();
+  localStorage.removeItem('pendingSessionId');
+  localStorage.removeItem('pendingSessionStart');
+
+  hideSpinner();
+  alert("Fehler bei der Berechnung: " + errorMessage);
+}
+
+// ============================================
+// Standby/Visibility Recovery
+// ============================================
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    console.log('Seite wieder sichtbar - prüfe auf laufende Berechnung');
+
+    // Prüfe ob eine Berechnung lief
+    if (isComputationRunning && currentSessionId) {
+      // SSE neu verbinden
+      connectProgressStream(currentSessionId);
+      // Sofort Ergebnis prüfen (falls während Standby fertig geworden)
+      checkForResult(currentSessionId);
+    }
+  }
+});
+
+// Bei Seiten-Load: Prüfe auf ausstehende Session
+window.addEventListener('load', () => {
+  const pendingSessionId = localStorage.getItem('pendingSessionId');
+  const pendingStart = localStorage.getItem('pendingSessionStart');
+
+  if (pendingSessionId && pendingStart) {
+    const elapsed = Date.now() - parseInt(pendingStart, 10);
+    // Nur wiederherstellen wenn weniger als 1 Stunde vergangen
+    if (elapsed < 3600000) {
+      console.log('Wiederherstellung ausstehender Session:', pendingSessionId);
+      currentSessionId = pendingSessionId;
+      isComputationRunning = true;
+      startTime = parseInt(pendingStart, 10);
+      showSpinner();
+      connectProgressStream(pendingSessionId);
+      startResultPolling(pendingSessionId);
+    } else {
+      // Session zu alt - aufräumen
+      localStorage.removeItem('pendingSessionId');
+      localStorage.removeItem('pendingSessionStart');
+    }
+  }
+});
 
 // ============================================
 // Vergleichstabelle
@@ -444,6 +594,7 @@ form.addEventListener("submit", async (e) => {
   currentSessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
   currentAbortController = new AbortController();
+  isComputationRunning = true;
   showSpinner();
 
   // Starte Progress-Stream
@@ -453,6 +604,7 @@ form.addEventListener("submit", async (e) => {
     const formData = new FormData(form);
     formData.append('session_id', currentSessionId);
 
+    // Starte die Berechnung (gibt sofort zurück)
     const response = await fetch("/ask-compare", {
       method: "POST",
       body: formData,
@@ -465,25 +617,33 @@ form.addEventListener("submit", async (e) => {
 
     const data = await response.json();
 
-    const docxBytes = Uint8Array.from(atob(data.docx_base64), c => c.charCodeAt(0));
-    const blob = new Blob([docxBytes], {type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-    const url = window.URL.createObjectURL(blob);
-    const downloadLink = document.getElementById("download-link");
-    downloadLink.href = url;
+    if (data.status === 'started') {
+      // Berechnung gestartet - starte Polling für Ergebnis
+      console.log('Berechnung gestartet, Session:', data.session_id);
+      startResultPolling(data.session_id);
+    } else if (data.error) {
+      throw new Error(data.error);
+    }
 
-    renderComparisonTable(data);
-
-    document.getElementById("answer-container").style.display = "block";
+    // NICHT hideSpinner() hier aufrufen - das passiert wenn Ergebnis da ist
 
   } catch (error) {
     if (error.name === 'AbortError') {
       console.log("Anfrage wurde abgebrochen.");
+      isComputationRunning = false;
+      stopResultPolling();
+      localStorage.removeItem('pendingSessionId');
+      localStorage.removeItem('pendingSessionStart');
+      hideSpinner();
     } else {
       console.error("Fehler:", error);
+      isComputationRunning = false;
+      stopResultPolling();
+      localStorage.removeItem('pendingSessionId');
+      localStorage.removeItem('pendingSessionStart');
+      hideSpinner();
       alert("Fehler bei der Anfrage: " + error.message);
     }
-  } finally {
-    hideSpinner();
     currentAbortController = null;
   }
 });
@@ -496,4 +656,14 @@ document.getElementById("cancel-btn").addEventListener("click", () => {
   if (currentAbortController) {
     currentAbortController.abort();
   }
+  // Polling und SSE stoppen
+  isComputationRunning = false;
+  stopResultPolling();
+  localStorage.removeItem('pendingSessionId');
+  localStorage.removeItem('pendingSessionStart');
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+  hideSpinner();
 });
