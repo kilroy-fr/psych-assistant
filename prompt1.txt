@@ -60,6 +60,7 @@ QUALITAETSREGELN:
 - Jeder Unterpunkt als kurzer, vollstaendiger Fliesstextsatz.
 - Keine neuen Informationen, keine Ableitungen.
 - Stil: medizinisch-sachlich, professionell, neutral.
-- PSYCHOPATHOLOGISCHER BEFUND (Unterabschnitt in Abschnitt 2): Verwende das Befund-Schema (psychopathologischer_befund.json) zur systematischen Darstellung. Decke alle relevanten Befundbereiche ab: Bewusstsein/Orientierung, Gedaechtnis, Aufmerksamkeit/Konzentration, formales Denken, inhaltliches Denken, Wahrnehmung, Ich-Erleben, Affektivitaet, Antrieb/Psychomotorik, zirkadiane Besonderheiten, Interaktion/Persoenlichkeit. Beschreibe jeden Bereich sachlich und befundorientiert. Unauffaellige Bereiche kurz als unauffaellig kennzeichnen.
+- ABSCHNITT 1 (Relevante soziodemographische Daten): Maximal 2-3 Zeilen. Enthaelt NUR: Alter, Familienstand, Arbeitsplatz, Ausbildung. KEINE Ortsnamen, auch nicht anonymisiert (kein "F." oder aehnliches fuer Orte).
+- PSYCHOPATHOLOGISCHER BEFUND (Unterabschnitt in Abschnitt 2): Der Befund ist bereits in den Patientendaten enthalten und muss extrahiert werden. Format: KEINE Absaetze, nur Fliesstext mit "Begriff: Text; Naechster-Begriff: Text;" (Doppelpunkt nach Begriff, Semikolon zwischen Eintraegen). Begriffe in dieser Reihenfolge: Bewusstsein; Orientierung; Kognition; Denken formal und inhaltlich; Aengste; Wahrnehmung; Ich-Stoerungen; Affekt; Antrieb; zirkadiane Besonderheiten; Suizidalitaet.
 
 JETZT AUSGABE DES FERTIGEN BERICHTS BEGINNEN.

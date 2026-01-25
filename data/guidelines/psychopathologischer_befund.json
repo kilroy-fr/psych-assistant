@@ -1,128 +1,31 @@
 {
   "schema_name": "psychopathologischer_befund",
-  "version": "1.0",
+  "version": "2.0",
   "language": "de",
   "doc_type": "befund_schema",
-  "description": "Strukturschema für den psychopathologischen Befund nach AMDP-System (modifiziert)",
-  "rules": {
-    "all_relevant_domains_required": true,
-    "descriptive_not_interpretive": true,
-    "style": "sachlich, objektiv, befundorientiert",
-    "unauffaellige_bereiche_kurz_benennen": true
+  "description": "Strukturschema fuer den psychopathologischen Befund - kompakte Darstellung",
+  "format": {
+    "style": "Begriff: Text; Naechster-Begriff: Text;",
+    "separator": ";",
+    "no_paragraphs": true,
+    "inline_format": true
   },
-  "befundbereiche": {
-    "bewusstsein_orientierung": {
-      "label": "Bewusstsein und Orientierung",
-      "description": "Bewusstseinszustand und Orientierung zu Zeit, Ort, Situation und Person",
-      "items": [
-        "Bewusstseinslage (wach, getrübt, somnolent, soporös)",
-        "Orientierung zeitlich (Datum, Wochentag, Jahreszeit)",
-        "Orientierung örtlich (Wo befinden wir uns?)",
-        "Orientierung situativ (Warum sind Sie hier?)",
-        "Orientierung zur Person (Wer bin ich? Wer sind Sie?)"
-      ]
-    },
-    "gedaechtnis": {
-      "label": "Gedächtnis",
-      "description": "Kurz- und Langzeitgedächtnis, mnestische Funktionen",
-      "items": [
-        "Kurzzeitgedächtnis (z. B. Merkfähigkeit für 3 Begriffe)",
-        "Langzeitgedächtnis (biographische Daten, frühere Ereignisse)",
-        "Gedächtnislücken oder Konfabulationen"
-      ]
-    },
-    "aufmerksamkeit_konzentration": {
-      "label": "Aufmerksamkeit und Konzentration",
-      "description": "Fähigkeit zur Aufmerksamkeit, Konzentration und Daueraufmerksamkeit",
-      "items": [
-        "Aufmerksamkeit (ablenkbar, fokussiert, fluktuierend)",
-        "Konzentrationsfähigkeit",
-        "Ermüdbarkeit"
-      ]
-    },
-    "formales_denken": {
-      "label": "Formales Denken",
-      "description": "Denkablauf, Tempo, Struktur, formale Denkstörungen",
-      "items": [
-        "Denktempo (beschleunigt, verlangsamt, gehemmt)",
-        "Denkablauf (stringent, umständlich, weitschweifig, sprunghaft, zerfahren)",
-        "Gedankenabreißen, Gedankensperrung",
-        "Perseveration, Haften",
-        "Assoziationslockerung, inkohärentes Denken"
-      ]
-    },
-    "inhaltliches_denken": {
-      "label": "Inhaltliches Denken",
-      "description": "Denkinhalte, Wahnerleben, Zwangsphänomene, Suizidalität",
-      "items": [
-        "Wahngedanken (Verfolgungswahn, Beziehungswahn, Größenwahn, hypochondrischer Wahn)",
-        "Zwangsgedanken und Zwangsimpulse",
-        "Grübeln, Gedankenkreisen",
-        "Suizidgedanken (passiv, aktiv, konkrete Pläne)",
-        "Fremdgefährdung"
-      ]
-    },
-    "wahrnehmung": {
-      "label": "Wahrnehmung",
-      "description": "Halluzinationen, Illusionen, Wahrnehmungsstörungen",
-      "items": [
-        "Akustische Halluzinationen (Stimmen, Geräusche, dialogisch/kommentierend)",
-        "Visuelle Halluzinationen",
-        "Andere Halluzinationen (olfaktorisch, gustatorisch, taktil, coenästhetisch)",
-        "Illusionen, Verkennungen",
-        "Derealisation (Unwirklichkeitserleben der Umwelt)",
-        "Depersonalisation (Entfremdung von sich selbst)"
-      ]
-    },
-    "ich_erleben": {
-      "label": "Ich-Erleben und Ich-Störungen",
-      "description": "Ich-Grenzen, Ich-Störungen, Beeinflussungserleben",
-      "items": [
-        "Gedankeneingebung, Gedankenentzug, Gedankenausbreitung",
-        "Willensbeeinflussung, Gemachte Gefühle",
-        "Beeinflussungserleben"
-      ]
-    },
-    "affektivitaet": {
-      "label": "Affektivität",
-      "description": "Stimmungslage, Affektmodulation, Schwingungsfähigkeit",
-      "items": [
-        "Stimmungslage (gehoben, gereizt, depressiv, ängstlich, dysphorisch, neutral)",
-        "Schwingungsfähigkeit (adäquat, eingeschränkt, labil)",
-        "Affektdurchlässigkeit (modulationsfähig, erstarrt, verflacht)",
-        "Vitalgefühl (Energie, Lebensfreude, innere Leere)",
-        "Anhedonie (Unfähigkeit, Freude zu empfinden)"
-      ]
-    },
-    "antrieb_psychomotorik": {
-      "label": "Antrieb und Psychomotorik",
-      "description": "Antriebslage, motorisches Verhalten, psychomotorische Besonderheiten",
-      "items": [
-        "Antrieb (gesteigert, vermindert, gehemmt)",
-        "Psychomotorik (unruhig, verlangsamt, gehemmt, agitiert)",
-        "Besondere motorische Phänomene (Tics, Stereotypien, Manierismen)",
-        "Gestik und Mimik"
-      ]
-    },
-    "zirkadiane_besonderheiten": {
-      "label": "Zirkadiane Besonderheiten",
-      "description": "Tagesschwankungen, Schlaf-Wach-Rhythmus",
-      "items": [
-        "Morgentief, Abendtief",
-        "Tagesschwankungen der Symptomatik",
-        "Schlafstörungen (Einschlaf-, Durchschlaf-, Früherwachen)",
-        "Schlaf-Wach-Rhythmus"
-      ]
-    },
-    "interaktion_persoenlichkeit": {
-      "label": "Interaktion und Persönlichkeitsmerkmale",
-      "description": "Verhalten in der therapeutischen Beziehung, interpersonelle Merkmale",
-      "items": [
-        "Kontaktverhalten (offen, zurückhaltend, misstrauisch, distanzlos)",
-        "Kooperationsbereitschaft",
-        "Beziehungsgestaltung",
-        "Persönlichkeitszüge (selbstunsicher, dependent, zwanghaft, narzisstisch, emotional instabil)"
-      ]
-    }
+  "begriffe": [
+    "Bewusstsein",
+    "Orientierung",
+    "Kognition",
+    "Denken formal und inhaltlich",
+    "Aengste",
+    "Wahrnehmung",
+    "Ich-Stoerungen",
+    "Affekt",
+    "Antrieb",
+    "zirkadiane Besonderheiten",
+    "Suizidalitaet"
+  ],
+  "rules": {
+    "extract_from_patient_data": true,
+    "descriptive_not_interpretive": true,
+    "style": "sachlich, objektiv, befundorientiert"
   }
 }

@@ -24,11 +24,11 @@ ABSCHNITT 6 – STRUKTUR (exakt so ausgeben):
 
 6. Behandlungsplan und Prognose
 
-Therapieziele (mit der Patientin vereinbart)
+6.1 Therapieziele
 
-Individueller Behandlungsplan
+6.2 Individueller Behandlungsplan
 
-Prognose
+6.3 Prognose
 
 FORMAT:
 - Klartext.

@@ -19,19 +19,24 @@ GRUNDLAGE:
 
 FORMATVORGABEN:
 - Kein Markdown.
-- Unter "Therapieziele (mit der Patientin vereinbart)" zwingend nummerierte Zeilen in der Reihenfolge der Ziele aus PASS 1; keine neuen Ziele erfinden oder umsortieren.
+- Therapieziele: Einleitungssatz "Folgende Therapieziele wurden mit Frau/Herrn X. vereinbart:" (Geschlecht aus Patientendaten anpassen!), danach nummerierte Liste (1., 2., 3., ...).
 - Sonst reiner Fliesstext.
 - Reihenfolge exakt einhalten.
+- Keine neuen Ziele erfinden oder umsortieren.
 
 ABSCHNITT 6 – STRUKTUR:
 
 6. Behandlungsplan und Prognose
 
-Therapieziele (mit der Patientin vereinbart)
+6.1 Therapieziele
+Folgende Therapieziele wurden mit Frau/Herrn X. vereinbart:
+1.
+2.
+3.
 
-Individueller Behandlungsplan
+6.2 Individueller Behandlungsplan
 
-Prognose
+6.3 Prognose
 
 STIL:
 - Medizinisch-sachlich, neutral, gutachtertauglich.

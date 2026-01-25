@@ -32,43 +32,23 @@ REGELN FUER 4.1:
 - Fruehere psychische Erkrankungen und Behandlungen nur kurz erwaehnen.
 
 4.2 Bedingungsmodell (verhaltenstherapeutisches Stoerungsmodell) nach dem S-O-R-C-Schema
-S
-O
-R
-C+
-C-
-C+/
-C-/
 
-KRITISCH - STRUKTUR DES S-O-R-C-MODELLS:
+FORMAT DES S-O-R-C-MODELLS (exakt so ausgeben):
+S: Extern: Text; Intern: Text
+O: Genetik: Text; Somatik: Text; Erziehung: Text; Persoenlichkeit: Text; Ueberlebensregel: Text
+R: Gedanken: Text; Gefuehle: Text; Koerperreaktionen: Text; Verhalten: Text
+C+: Text
+C-: Text
+C+/: Text
+C-/: Text
+
+REGELN FUER DAS S-O-R-C-MODELL:
 - Es gibt GENAU EINE SORC-Sequenz (nicht mehrere!).
-- Die Sequenz wird GENAU EINMAL durchlaufen: S -> O -> R -> C+ -> C- -> C+/ -> C-/.
-- NICHT wiederholen fuer verschiedene Situationen oder Symptome.
-- NICHT mehrere SORC-Bloecke hintereinander.
-- Alle relevanten Informationen werden in die EINE Struktur integriert.
-
-REGELN FUER DAS S-O-R-C-MODELL (siehe SORC.json):
-- Alle Komponenten muessen vorhanden sein (S, O, R, C+, C-, C+/, C-/).
-- Keine Vermischung der Komponenten.
-- Rein deskriptiv, funktional, zeitlich zugeordnet.
-- Keine Erklaerungen oder Hypothesen erfinden.
-- S (Stimulus): ALLE aeusseren und inneren Ausloeser zusammenfassen, die dem problematischen Verhalten zeitlich vorausgehen.
-- O (Organismus): ALLE biographischen Faktoren, kognitiven Schemata, emotionale Dispositionen, somatische Faktoren in EINEM O-Abschnitt zusammenfassen.
-- R (Response): ALLE Reaktionen in EINEM R-Abschnitt zusammenfassen. Explizit die vier Reaktionsebenen benennen und beschreiben: 1) kognitiv (Gedanken, Bewertungen, Erwartungen), 2) emotional (Gefuehle, affektive Reaktionen), 3) physiologisch (koerperliche Reaktionen), 4) behavioral (beobachtbares Verhalten, Vermeidung).
-- C (Consequences): Differenziert nach allen vier Verstaerkungstypen in VIER separaten Zeilen (C+, C-, C+/, C-/).
-
-ZUSAETZLICHE REGELN FUER DIE KOMPONENTE R:
-- Alle vier Reaktionsebenen muessen explizit benannt und ausgefuellt werden.
-- Reihenfolge: kognitiv -> emotional -> physiologisch -> behavioral.
-- Jede Ebene muss klar erkennbar sein (z.B. "Kognitiv:", "Emotional:", "Physiologisch:", "Behavioral:" als Markierung oder durch klare Formulierung wie "Auf kognitiver Ebene...", "Emotional zeigen sich...", etc.).
-- Keine Vermischung der Ebenen.
-- Wenn zu einer Ebene keine Information vorliegt: exakt "[Angabe fehlt]".
-
-ZUSAETZLICHE REGELN FUER DIE KOMPONENTE C:
-- Alle vier Konsequenztypen muessen separat in je EINER Zeile ausgefuellt werden.
-- Keine Zusammenfassung oder Vermischung.
-- Kurzfristige und langfristige Konsequenzen klar unterscheiden.
-- Wenn zu einem Typ keine Information vorliegt: exakt "[Angabe fehlt]".
+- Alle Komponenten muessen vorhanden sein.
+- Format: Doppelpunkt nach Komponente/Unterkomponente, Semikolon zwischen Unterkomponenten.
+- Jede Hauptkomponente (S, O, R, C+, C-, C+/, C-/) beginnt auf neuer Zeile.
+- Rein deskriptiv, keine Interpretationen.
+- Wenn zu einer Unterkomponente keine Information vorliegt: exakt "[Angabe fehlt]".
 
 FORMAT:
 - Klartext, keine Aufzaehlungen, kein Markdown.

@@ -1,107 +1,39 @@
 {
   "schema_name": "sorc_subschema_vt",
-  "version": "1.0",
+  "version": "2.0",
   "language": "de",
   "model_type": "verhaltenstherapeutisches_bedingungsmodell",
+  "format": {
+    "style": "Komponente: Unterkomponente: Text; Naechste-Unterkomponente: Text",
+    "separator": ";",
+    "line_breaks_between_components": true
+  },
   "rules": {
     "all_components_required": true,
     "no_merging_of_components": true,
     "descriptive_not_interpretive": true,
-    "style": "sachlich, funktional, gutachterlich",
-    "time_reference_required": true
+    "style": "sachlich, funktional, gutachterlich"
   },
   "components": {
     "S": {
       "label": "Stimulus",
-      "description": "Auslösende äußere oder innere Reize, die dem problematischen Verhalten zeitlich vorausgehen.",
-      "required": true,
-      "items": {
-        "external_stimuli": {
-          "type": "string",
-          "description": "Konkrete äußere Situationen oder Ereignisse (Ort, Zeit, soziale Konstellation)."
-        },
-        "internal_stimuli": {
-          "type": "string",
-          "description": "Innere Auslöser wie Gedanken, Erinnerungen oder Körperempfindungen."
-        }
-      }
+      "format": "S: Extern: Text; Intern: Text",
+      "items": ["Extern", "Intern"]
     },
     "O": {
       "label": "Organismus",
-      "description": "Personenspezifische Bedingungen, die die Reaktion auf den Stimulus beeinflussen.",
-      "required": true,
-      "items": {
-        "biographical_factors": {
-          "type": "string",
-          "description": "Relevante biographische Lernerfahrungen oder Prägungen."
-        },
-        "cognitive_schemas": {
-          "type": "string",
-          "description": "Grundannahmen, Schemata, Überzeugungen."
-        },
-        "emotional_disposition": {
-          "type": "string",
-          "description": "Emotionale Grundstimmung oder Vulnerabilitäten."
-        },
-        "somatic_factors": {
-          "type": "string",
-          "description": "Körperliche Faktoren, Erkrankungen oder Medikation."
-        }
-      }
+      "format": "O: Genetik: Text; Somatik: Text; Erziehung: Text; Persoenlichkeit: Text; Ueberlebensregel: Text",
+      "items": ["Genetik", "Somatik", "Erziehung", "Persoenlichkeit", "Ueberlebensregel"]
     },
     "R": {
       "label": "Response",
-      "description": "Reaktion auf den Stimulus unter Berücksichtigung der organismischen Bedingungen.",
-      "required": true,
-      "items": {
-        "cognitive": {
-          "type": "string",
-          "description": "Gedanken, Bewertungen, Erwartungen."
-        },
-        "emotional": {
-          "type": "string",
-          "description": "Gefühle und affektive Reaktionen."
-        },
-        "physiological": {
-          "type": "string",
-          "description": "Körperliche Reaktionen (z. B. Herzklopfen, Anspannung)."
-        },
-        "behavioral": {
-          "type": "string",
-          "description": "Beobachtbares Verhalten oder Vermeidungsverhalten."
-        }
-      }
+      "format": "R: Gedanken: Text; Gefuehle: Text; Koerperreaktionen: Text; Verhalten: Text",
+      "items": ["Gedanken", "Gefuehle", "Koerperreaktionen", "Verhalten"]
     },
     "C": {
       "label": "Consequences",
-      "description": "Kurz- und langfristige Konsequenzen der Reaktion, differenziert nach Verstärkungsart.",
-      "required": true,
-      "subcomponents": {
-        "C_plus": {
-          "label": "C+ (positive Verstärkung)",
-          "description": "Angenehmes wird hinzugefügt, Verhalten wird wahrscheinlicher.",
-          "example": "Zuwendung, Erleichterung, Anerkennung",
-          "type": "string"
-        },
-        "C_minus": {
-          "label": "C− (negative Verstärkung)",
-          "description": "Unangenehmes wird entfernt, Verhalten wird wahrscheinlicher.",
-          "example": "Reduktion von Angst durch Vermeidung",
-          "type": "string"
-        },
-        "C_plus_slash": {
-          "label": "C+/ (positive Bestrafung)",
-          "description": "Unangenehmes wird hinzugefügt, Verhalten wird unwahrscheinlicher.",
-          "example": "Kritik, Konflikte, Schuldgefühle",
-          "type": "string"
-        },
-        "C_minus_slash": {
-          "label": "C−/ (negative Bestrafung)",
-          "description": "Angenehmes wird entzogen, Verhalten wird unwahrscheinlicher.",
-          "example": "Rückzug von Zuwendung oder Privilegien",
-          "type": "string"
-        }
-      }
+      "format_per_line": true,
+      "items": ["C+", "C-", "C+/", "C-/"]
     }
   }
 }
