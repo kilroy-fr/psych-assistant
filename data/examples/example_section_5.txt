@@ -1,0 +1,10 @@
+5. Diagnose nach ICD-10
+
+HAUPTDIAGNOSE(N):
+F32.2 G Schwere depressive Episode ohne psychotische Symptome.
+
+NEBENDIAGNOSE(N):
+[Keine Unterscheidung Haupt-/Nebendiagnose in Daten]
+
+DIFFERENZIALDIAGNOSEN:
+[DD nicht in Daten genannt]

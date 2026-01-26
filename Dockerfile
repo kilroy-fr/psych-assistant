@@ -14,7 +14,6 @@ RUN pip install "llama-index-embeddings-ollama"
 COPY app ./app
 COPY data ./data
 COPY prompt1.txt ./prompt1.txt
-COPY prompt2.txt ./prompt2.txt
 COPY prompt4-1.txt ./prompt4-1.txt
 COPY prompt4-2.txt ./prompt4-2.txt
 COPY prompt5-1.txt ./prompt5-1.txt

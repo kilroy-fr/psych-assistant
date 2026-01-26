@@ -84,19 +84,19 @@ def load_prompt(filename):
     except FileNotFoundError:
         return None
 
-PROMPT1 = load_prompt("prompt1.txt")  # Einziger Pass: Direkte Berichts-Erstellung (Abschnitte 1-3)
-PROMPT2 = load_prompt("prompt2.txt")  # NICHT VERWENDET - nur fuer Abwaertskompatibilitaet vorhanden
+# Prompts für Abschnitte 1-3 (Single-Pass mit Musterbeispiel)
+PROMPT1 = load_prompt("prompt1.txt")
 
-# Prompts für Abschnitt 4 (Lebensgeschichte/Bedingungsmodell)
-PROMPT4_PASS1 = load_prompt("prompt4-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 4
-PROMPT4_PASS2 = load_prompt("prompt4-2.txt")  # Pass 2: Berichts-Formulierung für Abschnitt 4
+# Prompts für Abschnitt 4 (2-Pass: qwen3.1 -> gpt-4o-mini/deepseek)
+PROMPT4_PASS1 = load_prompt("prompt4-1.txt")  # Pass 1: Fakten-Extraktion (qwen3.1)
+PROMPT4_PASS2 = load_prompt("prompt4-2.txt")  # Pass 2: Polishing (gpt-4o-mini/deepseek)
 
-# Prompts für Abschnitt 5 (Diagnose nach ICD-10)
-PROMPT5_PASS1 = load_prompt("prompt5-1.txt")  # Einziger Pass: Direkte Berichts-Erstellung (1-Pass-System)
+# Prompts für Abschnitt 5 (Single-Pass mit Musterbeispiel)
+PROMPT5_PASS1 = load_prompt("prompt5-1.txt")
 
-# Prompts für Abschnitt 6 (Behandlungsplan/Prognose)
-PROMPT6_PASS1 = load_prompt("prompt6-1.txt")  # Pass 1: Fakten-Extraktion für Abschnitt 6
-PROMPT6_PASS2 = load_prompt("prompt6-2.txt")  # Pass 2: Berichts-Formulierung für Abschnitt 6
+# Prompts für Abschnitt 6 (2-Pass: qwen3.1 -> gpt-4o-mini/deepseek)
+PROMPT6_PASS1 = load_prompt("prompt6-1.txt")  # Pass 1: Fakten-Extraktion (qwen3.1)
+PROMPT6_PASS2 = load_prompt("prompt6-2.txt")  # Pass 2: Polishing (gpt-4o-mini/deepseek)
 
 # Fallback für altes System
 DEFAULT_SYSTEM_PROMPT = PROMPT1 if PROMPT1 else load_prompt("prompt.txt")
@@ -523,9 +523,12 @@ def run_computation_task(session_id, file_contents, paste_text):
 
         # HTML-formatierte Ergebnisse
         html_results = []
-        for parsed_result in parsed_results:
+        for combo_idx, parsed_result in enumerate(parsed_results):
             html_sections = [format_text_as_html(section) for section in parsed_result]
             html_results.append(html_sections)
+            # DEBUG: Prüfe Abschnitt 5 HTML
+            print(f"[DEBUG] Kombi {combo_idx+1} - html_results[{combo_idx}][4] Länge: {len(html_sections[4]) if len(html_sections) > 4 else 'INDEX FEHLT'}")
+            print(f"[DEBUG] Kombi {combo_idx+1} - html_results[{combo_idx}][4] Inhalt: {html_sections[4][:300] if len(html_sections) > 4 else 'N/A'}")
 
         model_names = [f"{combo['pass1']} + {combo['pass2']}" for combo in MODEL_COMBINATIONS]
 

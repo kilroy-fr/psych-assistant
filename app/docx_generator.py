@@ -6,9 +6,10 @@ import os
 import re
 import json
 from docx import Document
-from docx.shared import Pt, Cm
+from docx.shared import Pt, Cm, Twips
 from docx.oxml import OxmlElement
 from docx.text.paragraph import Paragraph
+from docx.enum.style import WD_STYLE_TYPE
 
 TEMPLATE_FILENAME = "report_template.docx"
 
@@ -744,6 +745,53 @@ def sanitize_sensitive_text(text):
     return sanitized
 
 
+def configure_document_styles(doc):
+    """Konfiguriert die Dokumentstyles für einheitliche Formatierung.
+
+    - Schriftgröße: 10pt für alle Styles
+    - Heading 1: Abstand vor 12pt, nach 0pt
+    - Heading 2: Abstand vor 12pt, nach 0pt
+    - Heading 3: Abstand vor 6pt, nach 0pt
+    - Normal: Abstand vor 6pt, nach 0pt
+    """
+    styles = doc.styles
+
+    # Normal Style
+    if 'Normal' in styles:
+        normal_style = styles['Normal']
+        normal_style.font.size = Pt(10)
+        normal_style.paragraph_format.space_before = Pt(6)
+        normal_style.paragraph_format.space_after = Pt(0)
+
+    # Heading 1 Style
+    if 'Heading 1' in styles:
+        h1_style = styles['Heading 1']
+        h1_style.font.size = Pt(10)
+        h1_style.paragraph_format.space_before = Pt(12)
+        h1_style.paragraph_format.space_after = Pt(0)
+
+    # Heading 2 Style (Unterüberschriften wie 4.1, 6.1 - kein Abstand vor)
+    if 'Heading 2' in styles:
+        h2_style = styles['Heading 2']
+        h2_style.font.size = Pt(10)
+        h2_style.paragraph_format.space_before = Pt(0)
+        h2_style.paragraph_format.space_after = Pt(0)
+
+    # Heading 3 Style (Unterüberschriften - kein Abstand vor)
+    if 'Heading 3' in styles:
+        h3_style = styles['Heading 3']
+        h3_style.font.size = Pt(10)
+        h3_style.paragraph_format.space_before = Pt(0)
+        h3_style.paragraph_format.space_after = Pt(0)
+
+    # Heading 4 Style (falls vorhanden - kein Abstand vor)
+    if 'Heading 4' in styles:
+        h4_style = styles['Heading 4']
+        h4_style.font.size = Pt(10)
+        h4_style.paragraph_format.space_before = Pt(0)
+        h4_style.paragraph_format.space_after = Pt(0)
+
+
 def _insert_paragraph_after(paragraph, text, style=None):
     new_p = OxmlElement("w:p")
     paragraph._p.addnext(new_p)
@@ -945,10 +993,8 @@ def ensure_report_template(template_path):
     doc.add_paragraph("6. Behandlungsplan und Prognose", style="Heading 1")
     doc.add_paragraph("{{SECTION_6}}")
 
-    for paragraph in doc.paragraphs:
-        if paragraph.style.name == "Normal":
-            for run in paragraph.runs:
-                run.font.size = Pt(11)
+    # Konfiguriere Styles für einheitliche Formatierung
+    configure_document_styles(doc)
 
     doc.save(template_path)
 
@@ -1021,13 +1067,14 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
         # Letzte Spalte: leer
         row.cells[cols - 1].text = ""
 
-    # Formatierung
+    # Formatierung: 10pt Schriftgröße, keine Abstände in Tabellenzellen
     for row in table.rows:
         for cell in row.cells:
             for paragraph in cell.paragraphs:
+                paragraph.paragraph_format.space_before = Pt(0)
                 paragraph.paragraph_format.space_after = Pt(0)
                 for run in paragraph.runs:
-                    run.font.size = Pt(9)
+                    run.font.size = Pt(10)
 
     # In BytesIO speichern
     output = io.BytesIO()
@@ -1085,6 +1132,9 @@ def create_flowing_text_docx(sections, selected_texts, enable_post_processing=Tr
     template_path = os.path.join(os.path.dirname(__file__), "templates", TEMPLATE_FILENAME)
     ensure_report_template(template_path)
     doc = Document(template_path)
+
+    # Konfiguriere Styles für einheitliche Formatierung (10pt, korrekte Abstände)
+    configure_document_styles(doc)
 
     for idx, section_text in enumerate(selected_texts, 1):
         placeholder = f"{{{{SECTION_{idx}}}}}"
