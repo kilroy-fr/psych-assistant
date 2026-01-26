@@ -30,7 +30,7 @@
       "subsections": [
         {
           "id": "2.1",
-          "title": "Von der Patientin oder dem Patienten geschilderte Symptomatik mit Angaben zu Schweregrad und Verlauf",
+          "title": "Von der Patientin geschilderte Symptomatik mit Angaben zu Schweregrad und Verlauf",
           "required": true
         },
         {
@@ -46,7 +46,7 @@
         },
         {
           "id": "2.4",
-          "title": "Krankheitsverständnis der Patientin oder des Patienten",
+          "title": "Krankheitsverständnis der Patientin",
           "required": true
         },
         {
@@ -68,7 +68,7 @@
         },
         {
           "id": "3.2",
-          "title": "aktuelle psychopharmakologische Medikation",
+          "title": "Aktuelle psychopharmakologische Medikation",
           "required": true
         },
         {
