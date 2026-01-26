@@ -31,6 +31,7 @@
         {
           "id": "2.1",
           "title": "Von der Patientin geschilderte Symptomatik mit Angaben zu Schweregrad und Verlauf",
+          "alternatives": ["Vom Patienten geschilderte Symptomatik mit Angaben zu Schweregrad und Verlauf"],
           "required": true
         },
         {
@@ -47,6 +48,7 @@
         {
           "id": "2.4",
           "title": "Krankheitsverständnis der Patientin",
+          "alternatives": ["Krankheitsverständnis des Patienten"],
           "required": true
         },
         {
@@ -108,6 +110,7 @@
         {
           "id": "6.1",
           "title": "Therapieziele (mit der Patientin vereinbart)",
+          "alternatives": ["Therapieziele (mit dem Patienten vereinbart)"],
           "required": true
         },
         {

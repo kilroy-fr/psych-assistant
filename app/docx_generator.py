@@ -35,6 +35,8 @@ def build_heading_map(schema):
 
     Returns:
         dict: {überschrift: level} wobei level = 2 (Hauptüberschrift), 3 (Unterüberschrift)
+
+    Unterstützt auch "alternatives" Array im Schema für geschlechtsspezifische Varianten.
     """
     if not schema:
         return {}
@@ -43,10 +45,16 @@ def build_heading_map(schema):
     for section in schema.get("sections", []):
         # Hauptüberschrift (Level 2 = h2)
         heading_map[section["title"]] = 2
+        # Alternative Hauptüberschriften
+        for alt in section.get("alternatives", []):
+            heading_map[alt] = 2
 
         # Unterüberschriften (Level 3 = h3)
         for subsection in section.get("subsections", []):
             heading_map[subsection["title"]] = 3
+            # Alternative Unterüberschriften (z.B. männliche Varianten)
+            for alt in subsection.get("alternatives", []):
+                heading_map[alt] = 3
 
     return heading_map
 
