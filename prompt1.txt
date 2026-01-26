@@ -11,10 +11,17 @@ WICHTIGE REGELN:
 
 ABSCHNITT 1: Maximal 2-3 Zeilen. NUR: Alter, Familienstand, Arbeitsplatz, Ausbildung. KEINE Ortsnamen.
 
-PSYCHOPATHOLOGISCHER BEFUND: Fließtext mit Semikolon-Trennung in dieser Reihenfolge:
-Bewusstsein; Orientierung; Kognition; Denken formal und inhaltlich; Ängste; Wahrnehmung; Ich-Störungen; Affekt; Antrieb; zirkadiane Besonderheiten; Suizidalität.
+PLATZHALTER-ANWEISUNGEN (Überschriften sind statisch, ersetze NUR die {PLATZHALTER}):
+- {SYMPTOMBESCHREIBUNG}: Symptome mit Zitaten der Patientin in Anführungszeichen, Schweregrad und zeitlichem Verlauf
+- {BEOBACHTUNGEN}: Beobachtungen zu Kontakt, Interaktion, Erscheinungsbild
+- {PSYCHOPATHOLOGISCHER_BEFUND}: Fließtext mit Semikolon-Trennung: Bewusstsein; Orientierung; Kognition; Denken formal und inhaltlich; Ängste; Wahrnehmung; Ich-Störungen; Affekt; Antrieb; zirkadiane Besonderheiten; Suizidalität.
+- {KRANKHEITSVERSTÄNDNIS}: Beschreibung des Krankheitsverständnisses
+- {TESTERGEBNISSE}: Testergebnisse mit Datum, Testnamen, Werten und Interpretation
+- {SOMATISCHE_BEFUNDE}: Relevante somatische Befunde
+- {MEDIKATION}: Medikation mit Dosierung
+- {VORBEHANDLUNGEN}: Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen
 
-===== FORMAT-VORLAGE (nur Struktur, KEINE Inhalte übernehmen!) =====
+===== FORMAT-VORLAGE (Überschriften EXAKT übernehmen, NUR {PLATZHALTER} ersetzen!) =====
 
 Bericht an den Gutachter
 
@@ -22,32 +29,34 @@ Bericht an den Gutachter
 Die [ALTER]-jährige Patientin ist [FAMILIENSTAND]. Sie arbeitet als [BERUF] und verfügt über [AUSBILDUNG].
 
 2. Symptomatik und psychischer Befund
-Von der Patientin geschilderte Symptomatik mit Angaben zu Schweregrad und Verlauf
-[SYMPTOMBESCHREIBUNG mit Zitaten der Patientin in Anführungszeichen, Schweregrad und zeitlichem Verlauf]
 
-Auffälligkeiten bei Kontaktaufnahme, Interaktion und Erscheinungsbild
-[BEOBACHTUNGEN zu Kontakt, Interaktion, Erscheinungsbild]
+2.1 Von der Patientin geschilderte Symptomatik mit Angaben zu Schweregrad und Verlauf
+{SYMPTOMBESCHREIBUNG}
 
-Psychopathologischer Befund
-Bewusstsein: [BEFUND]; Orientierung: [BEFUND]; Kognition: [BEFUND]; Denken formal und inhaltlich: [BEFUND]; Ängste: [BEFUND]; Wahrnehmung: [BEFUND]; Ich-Störungen: [BEFUND]; Affekt: [BEFUND]; Antrieb: [BEFUND]; zirkadiane Besonderheiten: [BEFUND]; Suizidalität: [BEFUND].
+2.2 Auffälligkeiten bei Kontaktaufnahme, Interaktion und Erscheinungsbild
+{BEOBACHTUNGEN}
 
-Krankheitsverständnis der Patientin
-[BESCHREIBUNG des Krankheitsverständnisses]
+2.3 Psychopathologischer Befund
+{PSYCHOPATHOLOGISCHER_BEFUND}
 
-Ergebnisse psychodiagnostischer Testverfahren
-[TESTERGEBNISSE mit Datum, Testnamen, Werten und Interpretation]
+2.4 Krankheitsverständnis der Patientin
+{KRANKHEITSVERSTÄNDNIS}
+
+2.5 Ergebnisse psychodiagnostischer Testverfahren
+{TESTERGEBNISSE}
 
 3. Somatischer Befund
-Relevante somatische Befunde und Erkrankungen
-[SOMATISCHE BEFUNDE]
 
-aktuelle psychopharmakologische Medikation
-[MEDIKATION mit Dosierung]
+3.1 Relevante somatische Befunde und Erkrankungen
+{SOMATISCHE_BEFUNDE}
 
-Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen
-[VORBEHANDLUNGEN]
+3.2 Aktuelle psychopharmakologische Medikation
+{MEDIKATION}
+
+3.3 Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen
+{VORBEHANDLUNGEN}
 
 ===== ENDE FORMAT-VORLAGE =====
 
-JETZT DEN BERICHT MIT DEN ECHTEN PATIENTENDATEN ERSTELLEN (ersetze alle [PLATZHALTER]):
+JETZT DEN BERICHT MIT DEN ECHTEN PATIENTENDATEN ERSTELLEN (Überschriften EXAKT übernehmen, NUR {PLATZHALTER} ersetzen):
 

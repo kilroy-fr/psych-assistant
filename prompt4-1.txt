@@ -9,19 +9,23 @@ WICHTIGE REGELN:
 - Fehlende Information: exakt "[Angabe fehlt]".
 - KEINE Interpretationen, nur Fakten aus den Patientendaten.
 
-4.1 BIOGRAPHISCHE ANAMNESE:
-- NUR behandlungsrelevante biographische Informationen.
-- Knapp und präzise, keine ausschweifenden Lebensgeschichten.
-- Chronologisch: Kindheit/Jugend -> Erwachsenenalter -> Erkrankungsbeginn.
+PLATZHALTER-ANWEISUNGEN (Überschriften sind statisch, ersetze NUR die {PLATZHALTER}):
+- {BIOGRAPHIE}: Kindheit, Jugend, prägende Ereignisse, Beziehungen, Berufsentwicklung, Erkrankungsbeginn - chronologisch und behandlungsrelevant. NUR behandlungsrelevante Infos, knapp und präzise.
+- {SORC_MODELL}: Vollständiges S-O-R-C-Schema (siehe Format unten)
 
-===== FORMAT-VORLAGE (nur Struktur, KEINE Inhalte übernehmen!) =====
+===== FORMAT-VORLAGE (Überschriften EXAKT übernehmen, NUR {PLATZHALTER} ersetzen!) =====
 
 4. Lebensgeschichte und psychodynamische bzw. verhaltenstherapeutische Zusammenhänge
 
 4.1 Biographische Anamnese und Krankheitsanamnese
-[BIOGRAPHIE: Kindheit, Jugend, prägende Ereignisse, Beziehungen, Berufsentwicklung, Erkrankungsbeginn - chronologisch und behandlungsrelevant]
+{BIOGRAPHIE}
 
 4.2 Bedingungsmodell (verhaltenstherapeutisches Störungsmodell) nach dem S-O-R-C-Schema
+{SORC_MODELL}
+
+===== ENDE FORMAT-VORLAGE =====
+
+SORC-FORMAT (für {SORC_MODELL}):
 S: Extern: [ÄUSSERE AUSLÖSER]; Intern: [INNERE AUSLÖSER]
 O: Genetik: [GENETISCHE FAKTOREN]; Somatik: [SOMATISCHE FAKTOREN]; Erziehung: [ERZIEHUNGSFAKTOREN]; Persönlichkeit: [PERSÖNLICHKEITSMERKMALE]; Überlebensregel: [ÜBERLEBENSREGEL]
 R: Gedanken: [KOGNITIONEN]; Gefühle: [EMOTIONEN]; Körperreaktionen: [PHYSIOLOGIE]; Verhalten: [VERHALTENSWEISEN]
@@ -30,7 +34,5 @@ C-: [NEGATIVE VERSTÄRKUNG]
 C+/: [POSITIVE BESTRAFUNG oder "[Angabe fehlt]"]
 C-/: [NEGATIVE BESTRAFUNG]
 
-===== ENDE FORMAT-VORLAGE =====
-
-JETZT ABSCHNITT 4 MIT DEN ECHTEN PATIENTENDATEN ERSTELLEN (ersetze alle [PLATZHALTER]):
+JETZT ABSCHNITT 4 MIT DEN ECHTEN PATIENTENDATEN ERSTELLEN (Überschriften EXAKT übernehmen, NUR {PLATZHALTER} ersetzen):
 
