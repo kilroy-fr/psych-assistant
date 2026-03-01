@@ -862,6 +862,9 @@ def _replace_placeholder_with_text(doc, placeholder, text):
 
     WICHTIG: Überschriften, die bereits im Template als Heading 1 existieren,
     werden NICHT nochmal eingefügt (verhindert Duplikate).
+
+    SPEZIAL: Abschnitt 2.3 (Psychopathologischer Befund) wird als Fließtext
+    ohne Zeilenumbrüche formatiert.
     """
     for paragraph in doc.paragraphs:
         if paragraph.text.strip() == placeholder:
@@ -883,31 +886,70 @@ def _replace_placeholder_with_text(doc, placeholder, text):
                         normalized = normalize_heading(p.text)
                         existing_headings.add(normalized)
 
-                for line in lines:
-                    cleaned = line.strip()
+                # Durchlaufe alle Zeilen und behandle Abschnitt 2.3 speziell
+                i = 0
+                while i < len(lines):
+                    cleaned = lines[i].strip()
+
                     if not cleaned:
-                        anchor = _insert_paragraph_after(anchor, "")
+                        # Überspringe leere Zeilen (verhindert unnötige Zeilenumbrüche)
+                        i += 1
                         continue
 
                     # Erkenne Überschriftenebene
                     heading_level = detect_heading_level(cleaned)
 
-                    # Prüfe ob diese Überschrift bereits im Dokument existiert
-                    if heading_level == 2:
-                        normalized_current = normalize_heading(cleaned)
-                        if normalized_current in existing_headings:
-                            # Überspringe diese Zeile - Duplikat!
-                            continue
-                        style = "Heading 2"
-                    elif heading_level == 3:
-                        style = "Heading 3"
-                    elif heading_level == 4:
-                        style = "Heading 4"
-                    else:
-                        style = "Normal"
+                    # Prüfe ob dies Abschnitt 2.3 ist (Psychopathologischer Befund)
+                    is_section_2_3 = False
+                    if heading_level == 3:
+                        normalized = normalize_heading(cleaned)
+                        if normalized == normalize_heading("2.3 Psychopathologischer Befund") or \
+                           normalized == normalize_heading("Psychopathologischer Befund"):
+                            is_section_2_3 = True
 
-                    # KRITISCH: Aktualisiere anchor nach jedem Einfügen, um korrekte Reihenfolge zu garantieren
-                    anchor = _insert_paragraph_after(anchor, cleaned, style=style)
+                    if is_section_2_3:
+                        # Sonderbehandlung für Abschnitt 2.3: Als Fließtext ohne Zeilenumbrüche
+                        # Füge die Überschrift hinzu
+                        anchor = _insert_paragraph_after(anchor, cleaned, style="Heading 3")
+                        i += 1
+
+                        # Sammle den Inhalt von Abschnitt 2.3 bis zur nächsten Überschrift
+                        content_lines = []
+                        while i < len(lines):
+                            next_cleaned = lines[i].strip()
+
+                            # Stop bei der nächsten Überschrift (Level 2 oder 3)
+                            if next_cleaned and detect_heading_level(next_cleaned) in [2, 3]:
+                                break
+
+                            if next_cleaned:  # Nur nicht-leere Zeilen sammeln
+                                content_lines.append(next_cleaned)
+                            i += 1
+
+                        # Füge alles als einen Fließtext-Paragraph ein (mit Leerzeichen getrennt)
+                        if content_lines:
+                            flow_text = " ".join(content_lines)
+                            anchor = _insert_paragraph_after(anchor, flow_text, style="Normal")
+                    else:
+                        # Normale Verarbeitung für andere Zeilen
+                        # Prüfe ob diese Überschrift bereits im Dokument existiert
+                        if heading_level == 2:
+                            normalized_current = normalize_heading(cleaned)
+                            if normalized_current in existing_headings:
+                                # Überspringe diese Zeile - Duplikat!
+                                i += 1
+                                continue
+                            style = "Heading 2"
+                        elif heading_level == 3:
+                            style = "Heading 3"
+                        elif heading_level == 4:
+                            style = "Heading 4"
+                        else:
+                            style = "Normal"
+
+                        # KRITISCH: Aktualisiere anchor nach jedem Einfügen, um korrekte Reihenfolge zu garantieren
+                        anchor = _insert_paragraph_after(anchor, cleaned, style=style)
+                        i += 1
 
             # Entferne den ursprünglichen Platzhalter (nicht den aktualisierten anchor!)
             placeholder_para._p.getparent().remove(placeholder_para._p)

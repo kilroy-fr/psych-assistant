@@ -34,3 +34,4 @@ lines.txt
 # OS-spezifisch
 .DS_Store
 Thumbs.db
+nul

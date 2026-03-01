@@ -17,9 +17,9 @@ PLATZHALTER-ANWEISUNGEN (Überschriften sind statisch, ersetze NUR die {PLATZHAL
 - {PSYCHOPATHOLOGISCHER_BEFUND}: Fließtext mit Semikolon-Trennung: Bewusstsein; Orientierung; Kognition; Denken formal und inhaltlich; Ängste; Wahrnehmung; Ich-Störungen; Affekt; Antrieb; zirkadiane Besonderheiten; Suizidalität.
 - {KRANKHEITSVERSTÄNDNIS}: Beschreibung des Krankheitsverständnisses
 - {TESTERGEBNISSE}: Testergebnisse mit Datum, Testnamen, Werten und Interpretation
-- {SOMATISCHE_BEFUNDE}: Relevante somatische Befunde
-- {MEDIKATION}: Medikation mit Dosierung
-- {VORBEHANDLUNGEN}: Psychotherapeutische, psychosomatische oder psychiatrische Vorbehandlungen
+- {SOMATISCHE_BEFUNDE}: Fließtext zu relevanten somatischen Befunden und Erkrankungen
+- {MEDIKATION}: Fließtext zur aktuellen psychopharmakologischen Medikation mit Dosierung
+- {VORBEHANDLUNGEN}: Fließtext zu psychotherapeutischen, psychosomatischen oder psychiatrischen Vorbehandlungen
 
 ===== FORMAT-VORLAGE (Überschriften EXAKT übernehmen, NUR {PLATZHALTER} ersetzen!) =====
 

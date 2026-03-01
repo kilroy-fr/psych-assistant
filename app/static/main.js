@@ -346,7 +346,6 @@ function connectProgressStream(sessionId) {
     }
     // Bei SSE-Fehler: Reconnect versuchen wenn Berechnung noch läuft
     if (isComputationRunning && currentSessionId) {
-      console.log('SSE-Verbindung verloren, versuche Reconnect...');
       setTimeout(() => {
         if (isComputationRunning && currentSessionId) {
           connectProgressStream(currentSessionId);
@@ -389,15 +388,12 @@ async function checkForResult(sessionId) {
 
     if (data.status === 'completed') {
       // Ergebnis erhalten - Berechnung abgeschlossen
-      console.log('Ergebnis erhalten für Session:', sessionId);
       handleComputationComplete(data.data);
     } else if (data.status === 'error') {
       // Fehler bei der Berechnung
-      console.error('Berechnungsfehler:', data.error);
       handleComputationError(data.error);
     } else if (data.status === 'not_found') {
       // Session nicht mehr vorhanden (evtl. Server neugestartet)
-      console.warn('Session nicht gefunden:', sessionId);
       stopResultPolling();
       localStorage.removeItem('pendingSessionId');
       localStorage.removeItem('pendingSessionStart');
@@ -447,8 +443,6 @@ function handleComputationError(errorMessage) {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    console.log('Seite wieder sichtbar - prüfe auf laufende Berechnung');
-
     // Prüfe ob eine Berechnung lief
     if (isComputationRunning && currentSessionId) {
       // SSE neu verbinden
@@ -468,7 +462,6 @@ window.addEventListener('load', () => {
     const elapsed = Date.now() - parseInt(pendingStart, 10);
     // Nur wiederherstellen wenn weniger als 1 Stunde vergangen
     if (elapsed < 3600000) {
-      console.log('Wiederherstellung ausstehender Session:', pendingSessionId);
       currentSessionId = pendingSessionId;
       isComputationRunning = true;
       startTime = parseInt(pendingStart, 10);
@@ -646,7 +639,6 @@ form.addEventListener("submit", async (e) => {
 
     if (data.status === 'started') {
       // Berechnung gestartet - starte Polling für Ergebnis
-      console.log('Berechnung gestartet, Session:', data.session_id);
       startResultPolling(data.session_id);
     } else if (data.error) {
       throw new Error(data.error);
@@ -656,7 +648,6 @@ form.addEventListener("submit", async (e) => {
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.log("Anfrage wurde abgebrochen.");
       isComputationRunning = false;
       stopResultPolling();
       localStorage.removeItem('pendingSessionId');

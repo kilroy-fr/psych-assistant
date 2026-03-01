@@ -34,6 +34,9 @@ running_tasks = {}  # session_id -> {"status": "running"|"completed"|"error", "e
 # Cleanup-Interval für alte Ergebnisse (1 Stunde)
 RESULT_EXPIRY_SECONDS = 3600
 
+# Werkzeug Request-Logging reduzieren (verhindert doppelte Logs)
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
 # Debug-Logging für Zwischenergebnisse
 debug_logger = logging.getLogger("psych_debug")
 debug_logger.setLevel(logging.DEBUG)
@@ -523,12 +526,9 @@ def run_computation_task(session_id, file_contents, paste_text):
 
         # HTML-formatierte Ergebnisse
         html_results = []
-        for combo_idx, parsed_result in enumerate(parsed_results):
+        for parsed_result in parsed_results:
             html_sections = [format_text_as_html(section) for section in parsed_result]
             html_results.append(html_sections)
-            # DEBUG: Prüfe Abschnitt 5 HTML
-            print(f"[DEBUG] Kombi {combo_idx+1} - html_results[{combo_idx}][4] Länge: {len(html_sections[4]) if len(html_sections) > 4 else 'INDEX FEHLT'}")
-            print(f"[DEBUG] Kombi {combo_idx+1} - html_results[{combo_idx}][4] Inhalt: {html_sections[4][:300] if len(html_sections) > 4 else 'N/A'}")
 
         model_names = [f"{combo['pass1']} + {combo['pass2']}" for combo in MODEL_COMBINATIONS]
 
@@ -624,12 +624,6 @@ def create_text():
     for i, (sec, text) in enumerate(zip(sections, selected_texts), 1):
         preview = text[:80].replace('\n', ' ') if text else "[LEER]"
         print(f"  {i}. {sec}: {preview}...")
-
-        # Log vollständigen Text für Abschnitte 3, 4, 6 zur Diagnose
-        if i in [3, 4, 6] and text:
-            print(f"\n[DEBUG] Vollständiger Text für Abschnitt {i}:")
-            print(text)
-            print(f"[DEBUG] Ende Abschnitt {i}\n")
 
     # DOCX erstellen
     # Post-Processing aktivieren, um Formatierungsprobleme zu beheben
