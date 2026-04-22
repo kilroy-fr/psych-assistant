@@ -76,6 +76,7 @@
           <tr>
             <th id="model-header-1"></th>
             <th id="model-header-2"></th>
+            <th id="model-header-3"></th>
           </tr>
         </thead>
         <tbody id="comparison-tbody">
@@ -85,13 +86,21 @@
       <button id="create-text-btn" type="button">Text erstellen</button>
     </div>
 
+    <!-- Timing-Übersicht -->
+    <div id="timing-container" style="display: none; margin-top: 24px;">
+      <details>
+        <summary>Laufzeiten der Durchläufe</summary>
+        <div id="timing-content"></div>
+      </details>
+    </div>
+
   </div>
 
   <!-- Spinner Overlay -->
   <div id="spinner-overlay" style="display: none;">
     <div class="spinner-content">
       <div class="spinner-circle"></div>
-      <div id="spinner-status" class="spinner-status">Verarbeite 2 Modellkombinationen...</div>
+      <div id="spinner-status" class="spinner-status">Verarbeite 3 Modellkombinationen...</div>
       <div id="spinner-timer" class="spinner-timer">00:00</div>
 
       <!-- Fortschrittsanzeige -->
@@ -129,6 +138,35 @@
           <div class="progress-combo-header">
             <span class="progress-arrow">→</span>
             <span class="progress-combo-title">Kombi 2: qwen3:14b + deepseek-r1:14b</span>
+          </div>
+          <div class="progress-sections">
+            <div class="progress-section" data-section="13">
+              <span class="section-indicator"></span>
+              <span class="section-label">Abschnitte 1-3</span>
+              <span class="section-pass"></span>
+            </div>
+            <div class="progress-section" data-section="4">
+              <span class="section-indicator"></span>
+              <span class="section-label">Abschnitt 4</span>
+              <span class="section-pass"></span>
+            </div>
+            <div class="progress-section" data-section="5">
+              <span class="section-indicator"></span>
+              <span class="section-label">Abschnitt 5</span>
+              <span class="section-pass"></span>
+            </div>
+            <div class="progress-section" data-section="6">
+              <span class="section-indicator"></span>
+              <span class="section-label">Abschnitt 6</span>
+              <span class="section-pass"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-combo" data-combo="3">
+          <div class="progress-combo-header">
+            <span class="progress-arrow">→</span>
+            <span class="progress-combo-title">Kombi 3: qwen3:14b + gemma4:e4b</span>
           </div>
           <div class="progress-sections">
             <div class="progress-section" data-section="13">

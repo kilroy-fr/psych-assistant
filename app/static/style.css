@@ -594,7 +594,7 @@ button:hover {
   background: #a7f3d0;
 }
 
-/* Single-Pass-Zellen (Abschnitte 1, 2, 3, 5) - über beide Spalten */
+/* Single-Pass-Zellen (Abschnitte 1, 2, 3, 5) - ueber alle Spalten */
 .comparison-cell.single-pass-cell {
   text-align: left;
   cursor: default;
@@ -868,5 +868,105 @@ button:hover {
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.03);
   color: #d1d5db;
+}
+
+/* Timing-Übersicht */
+#timing-container {
+  margin-top: 24px;
+}
+
+#timing-container details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95em;
+  color: #9ca3af;
+  user-select: none;
+  padding: 6px 0;
+}
+
+#timing-container details summary:hover {
+  color: #d1d5db;
+}
+
+#timing-content {
+  margin-top: 12px;
+}
+
+.timing-table {
+  border-collapse: collapse;
+  font-size: 0.85em;
+  width: 100%;
+  background: #111827;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #374151;
+}
+
+.timing-table thead tr {
+  background: #1e2d3d;
+}
+
+.timing-table th {
+  padding: 8px 12px;
+  text-align: left;
+  color: #9ca3af;
+  font-weight: 600;
+  border-bottom: 1px solid #374151;
+  white-space: nowrap;
+}
+
+.timing-table th:last-child {
+  text-align: right;
+}
+
+.timing-table td {
+  padding: 5px 12px;
+  border-bottom: 1px solid #1f2937;
+  color: #d1d5db;
+  vertical-align: middle;
+}
+
+.timing-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.timing-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.timing-table tr.timing-row-odd td {
+  background: #111827;
+}
+
+.timing-table tr.timing-row-even td {
+  background: #141d2b;
+}
+
+.timing-table tr.timing-subtotal td {
+  background: #1a3a2a;
+  color: #86efac;
+  font-weight: 600;
+  border-top: 1px solid #2d5a3d;
+  border-bottom: 1px solid #2d5a3d;
+}
+
+.timing-table tr.timing-total td {
+  background: #15352a;
+  color: #4ade80;
+  font-weight: 700;
+  border-top: 2px solid #22c55e;
+}
+
+.timing-cached {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.timing-model {
+  font-family: 'Courier New', monospace;
+  font-size: 0.82em;
+  color: #93c5fd;
 }
 

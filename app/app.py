@@ -51,12 +51,13 @@ file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
 debug_logger.addHandler(file_handler)
 
-# Feste Modellkombinationen (2 Kombinationen)
+# Feste Modellkombinationen (3 Kombinationen)
 # WICHTIG: Fuer Abschnitte 1-3 wird nur "pass1" verwendet (1-Pass-System)
 # "pass2" wird nicht mehr fuer Abschnitte 1-3 verwendet, bleibt aber fuer Kompatibilitaet
 MODEL_COMBINATIONS = [
     {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 1 (pass2 ungenutzt fuer 1-3)
     {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 2 (pass2 ungenutzt fuer 1-3)
+    {"pass1": "qwen3:14b", "pass2": "gemma4:e4b"},          # Kombi 3 (pass2 ungenutzt fuer 1-3)
 ]
 
 # Spezielle Modelle für komplexe Abschnitte 4, 5 und 6
@@ -64,6 +65,7 @@ MODEL_COMBINATIONS = [
 MODEL_COMBINATIONS_SECTION4_5_6 = [
     {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},                # Kombi 1
     {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},            # Kombi 2
+    {"pass1": "qwen3:14b", "pass2": "gemma4:e4b"},                 # Kombi 3
 ]
 
 # Abschnitts-Ueberschriften (6 Abschnitte)
@@ -247,7 +249,7 @@ def is_pass1_failed(result):
     return result_stripped.startswith("⏱️") or result_stripped.startswith("❌")
 
 
-def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, prompt2, pass1_cache=None, combo_index=None, session_id=None):
+def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, prompt2, pass1_cache=None, combo_index=None, session_id=None, timing_log=None):
     """Fuehrt einen 1-Pass-Durchlauf mit einer Modellkombination aus.
 
     WICHTIG: Fuer Abschnitte 1-3 wird nur Pass 1 ausgefuehrt. Das Ergebnis ist direkt der fertige Bericht.
@@ -258,15 +260,21 @@ def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, 
                      Key = Pass1-Modellname, Value = Pass1-Ergebnis.
         combo_index: Index der Kombination (1-2) für Logging.
         session_id: Session-ID für Fortschrittsupdates.
+        timing_log: Optional list zum Sammeln von Timing-Einträgen.
     """
     pass1_model = combo["pass1"]
 
     # Pass1: Aus Cache nehmen oder neu berechnen (direkt fertiger Bericht)
     if pass1_cache is not None and pass1_model in pass1_cache:
         final_answer = pass1_cache[pass1_model]
+        if timing_log is not None:
+            timing_log.append({"combo": combo_index, "section": "1-3", "pass": 1, "model": pass1_model, "duration": 0, "cached": True})
     else:
         send_progress(session_id, {"combo": combo_index, "section": "1-3", "pass": 1, "status": "running"})
+        t0 = time.time()
         final_answer = run_pass1(uploaded_files, paste_text, question, prompt1, pass1_model, combo_index, session_id)
+        if timing_log is not None:
+            timing_log.append({"combo": combo_index, "section": "1-3", "pass": 1, "model": pass1_model, "duration": round(time.time() - t0, 1), "cached": False})
         if pass1_cache is not None:
             pass1_cache[pass1_model] = final_answer
 
@@ -278,7 +286,7 @@ def run_model_combination(combo, uploaded_files, paste_text, question, prompt1, 
     return final_answer
 
 
-def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4=None, combo_index=None, session_id=None):
+def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4=None, combo_index=None, session_id=None, timing_log=None):
     """Generiert Abschnitt 4 (Lebensgeschichte/Bedingungsmodell) mit 2-Pass-System.
 
     Nutzt größere/bessere Modelle aus combo_section4_5_6 für komplexere Analyse.
@@ -288,13 +296,18 @@ def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
     # Pass1: Aus Cache nehmen oder neu berechnen
     if pass1_cache_section4 is not None and pass1_model in pass1_cache_section4:
         pass1_answer = pass1_cache_section4[pass1_model]
+        if timing_log is not None:
+            timing_log.append({"combo": combo_index, "section": "4", "pass": 1, "model": pass1_model, "duration": 0, "cached": True})
     else:
         send_progress(session_id, {"combo": combo_index, "section": "4", "pass": 1, "status": "running"})
+        t0 = time.time()
         pass1_answer = run_pass1(
             uploaded_files, paste_text,
             "Analysiere die Patientendaten für Abschnitt 4 (Lebensgeschichte/Bedingungsmodell).",
             PROMPT4_PASS1, pass1_model, combo_index, session_id
         )
+        if timing_log is not None:
+            timing_log.append({"combo": combo_index, "section": "4", "pass": 1, "model": pass1_model, "duration": round(time.time() - t0, 1), "cached": False})
         if pass1_cache_section4 is not None:
             pass1_cache_section4[pass1_model] = pass1_answer
 
@@ -304,11 +317,14 @@ def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
 
     # Pass2
     send_progress(session_id, {"combo": combo_index, "section": "4", "pass": 2, "status": "running"})
+    t0 = time.time()
     final_answer = run_pass2(pass1_answer, PROMPT4_PASS2, combo_section4_5_6["pass2"], combo_index, session_id)
+    if timing_log is not None:
+        timing_log.append({"combo": combo_index, "section": "4", "pass": 2, "model": combo_section4_5_6["pass2"], "duration": round(time.time() - t0, 1), "cached": False})
     return final_answer
 
 
-def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5=None, combo_index=None, session_id=None):
+def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5=None, combo_index=None, session_id=None, timing_log=None):
     """Generiert Abschnitt 5 (Diagnose nach ICD-10) mit 1-Pass-System.
 
     Nutzt qwen3:8b für direkte Berichtserstellung (einfache Diagnosen-Extraktion benötigt kein 2-Pass-System).
@@ -318,13 +334,18 @@ def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
     # Einziger Pass: Aus Cache nehmen oder neu berechnen (direkt fertiger Bericht)
     if pass1_cache_section5 is not None and model in pass1_cache_section5:
         final_answer = pass1_cache_section5[model]
+        if timing_log is not None:
+            timing_log.append({"combo": combo_index, "section": "5", "pass": 1, "model": model, "duration": 0, "cached": True})
     else:
         send_progress(session_id, {"combo": combo_index, "section": "5", "pass": 1, "status": "running"})
+        t0 = time.time()
         final_answer = run_pass1(
             uploaded_files, paste_text,
             "Erstelle Abschnitt 5 (Diagnose nach ICD-10) für die Patientendaten.",
             PROMPT5_PASS1, model, combo_index, session_id
         )
+        if timing_log is not None:
+            timing_log.append({"combo": combo_index, "section": "5", "pass": 1, "model": model, "duration": round(time.time() - t0, 1), "cached": False})
         if pass1_cache_section5 is not None:
             pass1_cache_section5[model] = final_answer
 
@@ -336,7 +357,7 @@ def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
     return final_answer
 
 
-def run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6=None, combo_index=None, session_id=None):
+def run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6=None, combo_index=None, session_id=None, timing_log=None):
     """Generiert Abschnitt 6 (Behandlungsplan/Prognose) mit 2-Pass-System.
 
     Nutzt größere/bessere Modelle aus combo_section4_5_6 für komplexere Analyse.
@@ -346,13 +367,18 @@ def run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
     # Pass1: Aus Cache nehmen oder neu berechnen
     if pass1_cache_section6 is not None and pass1_model in pass1_cache_section6:
         pass1_answer = pass1_cache_section6[pass1_model]
+        if timing_log is not None:
+            timing_log.append({"combo": combo_index, "section": "6", "pass": 1, "model": pass1_model, "duration": 0, "cached": True})
     else:
         send_progress(session_id, {"combo": combo_index, "section": "6", "pass": 1, "status": "running"})
+        t0 = time.time()
         pass1_answer = run_pass1(
             uploaded_files, paste_text,
             "Analysiere die Patientendaten für Abschnitt 6 (Behandlungsplan/Prognose).",
             PROMPT6_PASS1, pass1_model, combo_index, session_id
         )
+        if timing_log is not None:
+            timing_log.append({"combo": combo_index, "section": "6", "pass": 1, "model": pass1_model, "duration": round(time.time() - t0, 1), "cached": False})
         if pass1_cache_section6 is not None:
             pass1_cache_section6[pass1_model] = pass1_answer
 
@@ -362,7 +388,10 @@ def run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
 
     # Pass2
     send_progress(session_id, {"combo": combo_index, "section": "6", "pass": 2, "status": "running"})
+    t0 = time.time()
     final_answer = run_pass2(pass1_answer, PROMPT6_PASS2, combo_section4_5_6["pass2"], combo_index, session_id)
+    if timing_log is not None:
+        timing_log.append({"combo": combo_index, "section": "6", "pass": 2, "model": combo_section4_5_6["pass2"], "duration": round(time.time() - t0, 1), "cached": False})
     return final_answer
 
 
@@ -474,6 +503,9 @@ def run_computation_task(session_id, file_contents, paste_text):
         pass1_cache_section5 = {}
         pass1_cache_section6 = {}
 
+        # Timing-Log fuer alle Durchlaeufe
+        timing_log = []
+
         # Speichere Abschnitte pro Kombination separat
         all_sections_by_combo = []
 
@@ -487,17 +519,17 @@ def run_computation_task(session_id, file_contents, paste_text):
 
             result_13 = run_model_combination(
                 combo, uploaded_files, paste_text, question, PROMPT1, None,
-                pass1_cache=pass1_cache, combo_index=i, session_id=session_id
+                pass1_cache=pass1_cache, combo_index=i, session_id=session_id, timing_log=timing_log
             )
 
             uploaded_files = create_file_storages()
-            result_4 = run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4, combo_index=i, session_id=session_id)
+            result_4 = run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4, combo_index=i, session_id=session_id, timing_log=timing_log)
 
             uploaded_files = create_file_storages()
-            result_5 = run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5, combo_index=i, session_id=session_id)
+            result_5 = run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5, combo_index=i, session_id=session_id, timing_log=timing_log)
 
             uploaded_files = create_file_storages()
-            result_6 = run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6, combo_index=i, session_id=session_id)
+            result_6 = run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6, combo_index=i, session_id=session_id, timing_log=timing_log)
 
             send_progress(session_id, {"combo": i, "section": "done", "status": "completed"})
 
@@ -542,6 +574,7 @@ def run_computation_task(session_id, file_contents, paste_text):
             "models": model_names,
             "results": parsed_results,
             "html_results": html_results,
+            "timing_log": timing_log,
             "session_id": session_id,
             "_timestamp": time.time()
         }

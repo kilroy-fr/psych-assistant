@@ -190,6 +190,14 @@ def answer_question(
     upload_context = ""
     temp_index = build_temp_index_from_uploaded_files(uploaded_files)
 
+    def build_upload_context(chunks):
+        ctx = "\n\n=== HOCHGELADENE PATIENTENDATEN (vollständig) ===\n"
+        for i, text in enumerate(chunks, 1):
+            ctx += f"\n[Patientendaten Teil {i}]:\n{text}\n"
+        ctx += "\n=== ENDE PATIENTENDATEN ===\n"
+        return ctx
+
+    doc_chunks = []  # einzelne Chunks für spätere Kürzung zugänglich halten
     if temp_index is not None:
         # Für Pass 1: ALLE Patientendaten komplett laden, nicht nur ähnliche Chunks
         # Die Frage ist generisch ("Analysiere Patientendaten"), daher ist Similarity-Search suboptimal
@@ -201,12 +209,12 @@ def answer_question(
         max_chunks = min(total_chunks, 100)  # Limit bei 100 Chunks um nicht zu überladen
 
         # Hole alle Dokumente direkt aus dem docstore statt via Retriever
-        upload_context = "\n\n=== HOCHGELADENE PATIENTENDATEN (vollständig) ===\n"
-        for i, doc_id in enumerate(all_doc_ids[:max_chunks], 1):
+        for doc_id in all_doc_ids[:max_chunks]:
             doc = temp_index.docstore.get_document(doc_id)
-            upload_context += f"\n[Patientendaten Teil {i}]:\n{doc.text}\n"
-        upload_context += "\n=== ENDE PATIENTENDATEN ===\n"
-        logger.info(f"Patientendaten: {max_chunks}/{total_chunks} Chunks geladen")
+            doc_chunks.append(doc.text)
+
+        upload_context = build_upload_context(doc_chunks)
+        logger.info(f"Patientendaten: {len(doc_chunks)}/{total_chunks} Chunks geladen")
 
     # 3) Context-Größe für RAG-Modus einstellen
     # Pass 1 braucht VIEL Context, weil alle Patientendaten + Guidelines + System-Prompt geladen werden
@@ -222,7 +230,8 @@ def answer_question(
             logger.info(f"Pass 1: SEHR GROSSES Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Mittlere Modelle (14-34B): Brauchen mehr Context für vollständige Patientendaten
         # WICHTIG: Diese müssen VOR den kleineren Modellen geprüft werden (14b enthält auch "4b"!)
-        elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['14b', '20b', '27b', '34b']):
+        # e4b = gemma4 MoE (27B Gewichte, 4B aktiv) → wie mittleres Modell behandeln
+        elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['14b', '20b', '27b', '34b']) or ':e4b' in model_lower:
             num_ctx_rag = 49152  # 48K für mittlere Modelle - verhindert Prompt-Kürzung
             logger.info(f"Pass 1: Mittleres Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Kleine-mittlere Modelle (12-13B): Guter Kompromiss
@@ -266,11 +275,9 @@ Frage: {question}"""
 
         if estimated_tokens > max_prompt_tokens:
             logger.warning(f"Prompt zu lang ({estimated_tokens} Token geschätzt), max erlaubt: {max_prompt_tokens}")
-            logger.warning(f"Empfehlung: Verwenden Sie ein kleineres Modell oder weniger Patientendaten für Pass 1")
-            # Versuche Prompt zu kürzen durch Reduzierung der Guidelines
+            # Stufe 1: Guidelines auf 3 Chunks kürzen
             guideline_context_short = ""
             if guideline_nodes:
-                # Nur die wichtigsten 3 Guidelines verwenden
                 guideline_context_short = "\n\n=== STRUKTUR-VORGABEN (Guidelines - gekürzt) ===\n"
                 for i, node in enumerate(guideline_nodes[:3], 1):
                     guideline_context_short += f"\n[Guideline {i}]:\n{node.text}\n"
@@ -283,6 +290,26 @@ Frage: {question}"""
 {upload_context}
 
 Frage: {question}"""
+
+            # Stufe 2: Wenn immer noch zu lang, Patientendaten-Chunks schrittweise entfernen
+            estimated_tokens = len(full_prompt) // 3
+            if estimated_tokens > max_prompt_tokens and doc_chunks:
+                original_chunk_count = len(doc_chunks)
+                active_chunks = list(doc_chunks)
+                while len(active_chunks) > 1 and len(full_prompt) // 3 > max_prompt_tokens:
+                    active_chunks.pop()
+                    trimmed_upload = build_upload_context(active_chunks)
+                    full_prompt = f"""{system_prompt or ''}
+
+{guideline_context_short}
+
+{trimmed_upload}
+
+Frage: {question}"""
+                logger.warning(
+                    f"Patientendaten auf {len(active_chunks)}/{original_chunk_count} Chunks "
+                    f"gekürzt (Prompt passt jetzt in {num_ctx_rag} Token-Fenster)"
+                )
 
         # Direkter Ollama API Call (wie in Pass 2)
         ollama_url = f"{OLLAMA_HOST}/api/generate"

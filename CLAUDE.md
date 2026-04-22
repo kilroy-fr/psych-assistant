@@ -13,6 +13,26 @@ Verwendet lokale LLMs via Ollama mit einem Multi-Pass-System und RAG-Integration
 - **Frontend:** Vanilla HTML/CSS/JS (kein Framework)
 - **DOCX-Export:** python-docx
 
+## Modellkombinationen (3 Kombis)
+
+Alle Kombis teilen denselben `pass1`-Lauf (gecacht) — nur `pass2` in Abschnitten 4 und 6 differenziert.
+
+| Kombi | Pass 1 (alle Abschnitte) | Pass 2 (Abschnitte 4 + 6) |
+|-------|--------------------------|---------------------------|
+| 1 | qwen3:14b | gpt-oss:20b |
+| 2 | qwen3:14b | deepseek-r1:14b |
+| 3 | qwen3:14b | gemma4:e4b |
+
+Abschnitte 1–3 und 5 sind 1-Pass → identisches Ergebnis in allen 3 Kombis.
+
+### Kontextfenster-Logik (`query_engine.py`)
+
+Bei zu langem Eingabetext greift eine zweistufige Kürzung:
+1. Guidelines: 10 → 3 Chunks
+2. Patientendaten: Chunks von hinten entfernen bis Prompt ins Fenster passt
+
+Modellgrößen-Erkennung via Namens-Pattern (`:14b`, `:e4b` etc.) → `num_ctx_rag` 8K–49K.
+
 ## Berichtsstruktur (6 Abschnitte)
 
 | Abschnitt | Thema | Methode |

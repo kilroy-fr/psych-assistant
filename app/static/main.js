@@ -421,10 +421,81 @@ function handleComputationComplete(data) {
   // Vergleichstabelle rendern
   renderComparisonTable(data);
 
+  // Timing-Übersicht rendern
+  if (data.timing_log && data.timing_log.length > 0) {
+    renderTimingTable(data.timing_log, data.models);
+  }
+
   // Ergebnis-Container anzeigen
   document.getElementById("answer-container").style.display = "block";
 
   hideSpinner();
+}
+
+function renderTimingTable(timingLog, modelNames) {
+  const container = document.getElementById("timing-container");
+  const content = document.getElementById("timing-content");
+
+  // Gruppiere nach Kombi
+  const byCombo = {};
+  timingLog.forEach(entry => {
+    if (!byCombo[entry.combo]) byCombo[entry.combo] = [];
+    byCombo[entry.combo].push(entry);
+  });
+
+  const sectionLabel = {"1-3": "Abschnitte 1-3", "4": "Abschnitt 4", "5": "Abschnitt 5", "6": "Abschnitt 6"};
+
+  let html = '<table class="timing-table">';
+  html += '<thead><tr>';
+  html += '<th>Kombi</th><th>Abschnitt</th><th>Pass</th><th>Modell</th><th>Dauer</th>';
+  html += '</tr></thead><tbody>';
+
+  Object.keys(byCombo).sort((a, b) => a - b).forEach(combo => {
+    const entries = byCombo[combo];
+    let comboTotal = 0;
+
+    entries.forEach((entry, idx) => {
+      const dur = entry.duration;
+      if (!entry.cached) comboTotal += dur;
+
+      const durStr = entry.cached
+        ? '<span class="timing-cached">Cache</span>'
+        : formatDuration(dur);
+
+      const rowClass = idx % 2 === 0 ? 'timing-row-odd' : 'timing-row-even';
+      html += `<tr class="${rowClass}">`;
+      html += `<td>${idx === 0 ? 'Kombi ' + combo : ''}</td>`;
+      html += `<td>${sectionLabel[entry.section] || entry.section}</td>`;
+      html += `<td>Pass ${entry.pass}</td>`;
+      html += `<td><span class="timing-model">${entry.model}</span></td>`;
+      html += `<td>${durStr}</td>`;
+      html += '</tr>';
+    });
+
+    // Summenzeile pro Kombi
+    html += `<tr class="timing-subtotal">`;
+    html += `<td colspan="4">Kombi ${combo} Gesamt</td>`;
+    html += `<td>${formatDuration(comboTotal)}</td>`;
+    html += '</tr>';
+  });
+
+  // Gesamtsumme (nur nicht-gecachte Einträge)
+  const grandTotal = timingLog.filter(e => !e.cached).reduce((sum, e) => sum + e.duration, 0);
+  html += `<tr class="timing-total">`;
+  html += `<td colspan="4">Gesamtzeit (LLM-Aufrufe)</td>`;
+  html += `<td>${formatDuration(grandTotal)}</td>`;
+  html += '</tr>';
+
+  html += '</tbody></table>';
+  content.innerHTML = html;
+  container.style.display = "block";
+}
+
+function formatDuration(seconds) {
+  if (seconds < 60) return seconds.toFixed(1) + ' s';
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return m + ' min ' + String(s).padStart(2, '0') + ' s';
 }
 
 function handleComputationError(errorMessage) {
@@ -480,7 +551,7 @@ window.addEventListener('load', () => {
 // Vergleichstabelle
 // ============================================
 
-// Abschnitte mit 1-Pass-System (identische Ergebnisse in beiden Kombis)
+// Abschnitte mit 1-Pass-System (identische Ergebnisse in allen Kombis)
 // Index 0=Abschnitt 1, 1=Abschnitt 2, 2=Abschnitt 3, 4=Abschnitt 5
 const SINGLE_PASS_ROWS = [0, 1, 2, 4];
 
