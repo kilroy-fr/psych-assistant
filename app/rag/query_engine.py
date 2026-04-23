@@ -151,7 +151,7 @@ def answer_question(
                 if model_name:
                     model_lower = model_name.lower()
                     # Für größere Modelle (12B+) mehr Context erlauben
-                    if any(size in model_lower for size in ['12b', '13b','14b', '27b', '34b', '70b']):
+                    if any(size in model_lower for size in ['12b', '13b', '14b', '26b', '27b', '34b', '70b']):
                         num_ctx = 12288
                     # Explizit kleine Modelle mit reduziertem Context
                     elif any(size in model_lower for size in ['3b', '4b', '7b', '8b', '9b']):

@@ -258,20 +258,20 @@ function updateProgress(data) {
   const comboEl = document.querySelector(`.progress-combo[data-combo="${data.combo}"]`);
   if (!comboEl) return;
 
-  // Markiere aktuelle Kombi als aktiv
+  // Gesamte Kombi gestartet
   if (data.status === 'starting') {
-    // Entferne 'active' von allen Kombis
     document.querySelectorAll('.progress-combo').forEach(c => {
       if (c !== comboEl) c.classList.remove('active');
     });
     comboEl.classList.add('active');
     comboEl.classList.remove('completed');
+    return;
   }
 
-  if (data.status === 'completed') {
+  // Gesamte Kombi abgeschlossen (nur wenn section === 'done')
+  if (data.status === 'completed' && data.section === 'done') {
     comboEl.classList.remove('active');
     comboEl.classList.add('completed');
-    // Markiere alle Sections dieser Kombi als completed
     comboEl.querySelectorAll('.progress-section').forEach(s => {
       s.classList.add('completed');
       s.classList.remove('active');
@@ -279,37 +279,30 @@ function updateProgress(data) {
     return;
   }
 
-  // Finde die richtige Section
-  let sectionKey = '';
-  if (data.section === '1-3') {
-    sectionKey = '13';
-  } else if (data.section === '4') {
-    sectionKey = '4';
-  } else if (data.section === '5') {
-    sectionKey = '5';
-  } else if (data.section === '6') {
-    sectionKey = '6';
-  }
-
+  // Section-Lookup
+  const sectionMap = {'1-3': '13', '4': '4', '5': '5', '6': '6'};
+  const sectionKey = sectionMap[data.section];
   if (!sectionKey) return;
 
   const sectionEl = comboEl.querySelector(`.progress-section[data-section="${sectionKey}"]`);
   if (!sectionEl) return;
 
-  // Entferne 'active' von allen Sections in dieser Kombi
-  comboEl.querySelectorAll('.progress-section').forEach(s => {
-    if (s !== sectionEl) s.classList.remove('active');
-  });
-
   if (data.status === 'running') {
+    // Entferne 'active' von anderen Sections dieser Kombi
+    comboEl.querySelectorAll('.progress-section').forEach(s => {
+      if (s !== sectionEl) s.classList.remove('active');
+    });
     sectionEl.classList.add('active');
     sectionEl.classList.remove('completed');
-
-    // Zeige Pass-Nummer (nur für 2-Pass-Abschnitte 4 und 6)
-    // Abschnitt 5 nutzt jetzt 1-Pass-System
-    if (data.pass && data.section !== '5') {
-      const passLabel = data.pass === 1 ? 'Pass 1' : 'Pass 2';
-      sectionEl.querySelector('.section-pass').textContent = passLabel;
+    if (data.pass) {
+      sectionEl.querySelector('.section-pass').textContent = `Pass ${data.pass}`;
+    }
+  } else if (data.status === 'section_done') {
+    // Einzelne Section abgeschlossen, Kombi laeuft weiter
+    sectionEl.classList.add('completed');
+    sectionEl.classList.remove('active');
+    if (data.pass) {
+      sectionEl.querySelector('.section-pass').textContent = `Pass ${data.pass}`;
     }
   }
 }
