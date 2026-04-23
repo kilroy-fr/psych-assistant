@@ -19,11 +19,25 @@ Alle Kombis teilen denselben `pass1`-Lauf (gecacht) — nur `pass2` in Abschnitt
 
 | Kombi | Pass 1 (alle Abschnitte) | Pass 2 (Abschnitte 4 + 6) |
 |-------|--------------------------|---------------------------|
-| 1 | qwen3:14b | gpt-oss:20b |
-| 2 | qwen3:14b | deepseek-r1:14b |
-| 3 | qwen3:14b | gemma4:e4b |
+| 1 | gemma4:e4b | gpt-oss:20b |
+| 2 | gemma4:e4b | deepseek-r1:14b |
+| 3 | gemma4:e4b | gemma4:e4b (T=0.65) |
+
+`gemma4:e4b` als Pass-1-Modell: MoE-Architektur (27B Gewichte, 4B aktiv) → Inferenzgeschwindigkeit
+wie ein 4B-Modell, Kapazität eines 27B-Modells. Löst Timeout-Problem bei langen Eingabetexten.
+
+Kombi 3 nutzt gemma4:e4b auch als Pass-2-Modell mit höherer Temperatur (0.65 vs. Standard 0.1)
+→ kreativere/vielfältigere Formulierungen als Vergleichsvariante.
 
 Abschnitte 1–3 und 5 sind 1-Pass → identisches Ergebnis in allen 3 Kombis.
+
+### Ausführungsreihenfolge (`run_computation_task`)
+
+**Phase 1** — Alle gemma4:e4b Pass1-Läufe (Abschnitte 1-3, 4, 5, 6 sequenziell).
+Modell bleibt im VRAM, kein Modell-Swap zwischen den Runs.
+
+**Phase 2** — Pass2-Läufe für Abschnitte 4 und 6, je Kombi anderes Modell.
+Abschnitte 1-3 und 5 werden direkt aus Phase-1-Ergebnissen übernommen.
 
 ### Kontextfenster-Logik (`query_engine.py`)
 

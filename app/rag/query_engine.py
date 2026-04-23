@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from .build_index import build_index
 
 logger = logging.getLogger(__name__)
+diag_logger = logging.getLogger("psych_debug")  # schreibt in debug_results.log
 
 _index = None  # globaler Index-Cache
 
@@ -198,7 +199,10 @@ def answer_question(
         return ctx
 
     doc_chunks = []  # einzelne Chunks für spätere Kürzung zugänglich halten
-    if temp_index is not None:
+    if temp_index is None:
+        diag_logger.warning(f"RAG: temp_index ist None - keine Patientendaten geladen! "
+                            f"uploaded_files={len(uploaded_files or [])} Dateien")
+    else:
         # Für Pass 1: ALLE Patientendaten komplett laden, nicht nur ähnliche Chunks
         # Die Frage ist generisch ("Analysiere Patientendaten"), daher ist Similarity-Search suboptimal
         # Besser: Alle Chunks einbeziehen
@@ -214,7 +218,8 @@ def answer_question(
             doc_chunks.append(doc.text)
 
         upload_context = build_upload_context(doc_chunks)
-        logger.info(f"Patientendaten: {len(doc_chunks)}/{total_chunks} Chunks geladen")
+        diag_logger.info(f"RAG: {len(doc_chunks)}/{total_chunks} Chunks geladen, "
+                         f"upload_context={len(upload_context)} Zeichen")
 
     # 3) Context-Größe für RAG-Modus einstellen
     # Pass 1 braucht VIEL Context, weil alle Patientendaten + Guidelines + System-Prompt geladen werden

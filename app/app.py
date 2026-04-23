@@ -52,20 +52,20 @@ file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
 debug_logger.addHandler(file_handler)
 
 # Feste Modellkombinationen (3 Kombinationen)
-# WICHTIG: Fuer Abschnitte 1-3 wird nur "pass1" verwendet (1-Pass-System)
-# "pass2" wird nicht mehr fuer Abschnitte 1-3 verwendet, bleibt aber fuer Kompatibilitaet
+# WICHTIG: Fuer Abschnitte 1-3 und 5 wird nur "pass1" verwendet (1-Pass-System)
+# "pass2" wird nur fuer Abschnitte 4 und 6 verwendet
+# "pass2_temperature": optionale Basis-Temperatur fuer Pass 2 (Default: 0.1)
 MODEL_COMBINATIONS = [
-    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},         # Kombi 1 (pass2 ungenutzt fuer 1-3)
-    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},     # Kombi 2 (pass2 ungenutzt fuer 1-3)
-    {"pass1": "qwen3:14b", "pass2": "gemma4:e4b"},          # Kombi 3 (pass2 ungenutzt fuer 1-3)
+    {"pass1": "gemma4:e4b", "pass2": "gpt-oss:20b"},                              # Kombi 1
+    {"pass1": "gemma4:e4b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
+    {"pass1": "gemma4:e4b", "pass2": "gemma4:e4b", "pass2_temperature": 0.65},   # Kombi 3: hoehere Temperatur
 ]
 
-# Spezielle Modelle für komplexe Abschnitte 4, 5 und 6
-# Diese nutzen größere Modelle wegen der Komplexität (Bedingungsmodell, Diagnosen, Behandlungsplan)
+# Spezielle Modelle fuer komplexe Abschnitte 4, 5 und 6
 MODEL_COMBINATIONS_SECTION4_5_6 = [
-    {"pass1": "qwen3:14b", "pass2": "gpt-oss:20b"},                # Kombi 1
-    {"pass1": "qwen3:14b", "pass2": "deepseek-r1:14b"},            # Kombi 2
-    {"pass1": "qwen3:14b", "pass2": "gemma4:e4b"},                 # Kombi 3
+    {"pass1": "gemma4:e4b", "pass2": "gpt-oss:20b"},                              # Kombi 1
+    {"pass1": "gemma4:e4b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
+    {"pass1": "gemma4:e4b", "pass2": "gemma4:e4b", "pass2_temperature": 0.65},   # Kombi 3
 ]
 
 # Abschnitts-Ueberschriften (6 Abschnitte)
@@ -197,12 +197,21 @@ def run_pass1(uploaded_files, paste_text, question, prompt1, model_name, combo_i
         model_name=model_name,
     )
 
+    debug_logger.info(f"Pass 1 Ergebnis - Modell: {model_name} - Laenge: {len(result)} Zeichen")
+    if not result or not result.strip():
+        debug_logger.warning(f"Pass 1 LEER! Modell {model_name} hat nichts zurueckgegeben.")
+    elif result.startswith("⏱️") or result.startswith("❌"):
+        debug_logger.warning(f"Pass 1 FEHLER: {result[:200]}")
+    else:
+        debug_logger.info(f"Pass 1 Vorschau:\n{result[:500]}\n[...gekuerzt...]")
+
     return result
 
 
-def run_pass2(pass1_answer, prompt2, model_name, combo_index=None, session_id=None):
+def run_pass2(pass1_answer, prompt2, model_name, combo_index=None, session_id=None, base_temperature=None):
     """Fuehrt Pass 2 (Berichts-Formulierung) basierend auf Pass 1 aus.
 
+    base_temperature: Basis-Temperatur fuer den ersten Versuch (Default: 0.1).
     Bei leerem Ergebnis wird mit alternativen Parametern wiederholt.
     """
     pass2_question = f"""
@@ -215,11 +224,12 @@ def run_pass2(pass1_answer, prompt2, model_name, combo_index=None, session_id=No
 AUFGABE: Erstelle nun basierend auf diesen PASS 1 Ergebnissen den fertigen Bericht.
 """
 
+    base_temp = base_temperature if base_temperature is not None else 0.1
     # Retry-Konfigurationen: (temperature, num_ctx_override, Beschreibung)
     retry_configs = [
-        (None, None, "Standard-Parameter"),
-        (0.3, 8192, "Retry 1: höhere Temperatur, reduzierter Context"),
-        (0.5, 4096, "Retry 2: noch höhere Temperatur, minimaler Context"),
+        (base_temp, None, "Standard-Parameter"),
+        (min(base_temp + 0.2, 0.8), 8192, "Retry 1: höhere Temperatur, reduzierter Context"),
+        (min(base_temp + 0.4, 0.9), 4096, "Retry 2: noch höhere Temperatur, minimaler Context"),
     ]
 
     for temp, ctx, _ in retry_configs:
@@ -327,9 +337,9 @@ def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
 def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5=None, combo_index=None, session_id=None, timing_log=None):
     """Generiert Abschnitt 5 (Diagnose nach ICD-10) mit 1-Pass-System.
 
-    Nutzt qwen3:8b für direkte Berichtserstellung (einfache Diagnosen-Extraktion benötigt kein 2-Pass-System).
+    Nutzt gemma4:e4b für direkte Berichtserstellung (MoE: schnell wie 4B, Qualität wie 27B).
     """
-    model = "qwen3:8b"  # Schnelles Modell für einfache Diagnosen-Extraktion
+    model = "gemma4:e4b"
 
     # Einziger Pass: Aus Cache nehmen oder neu berechnen (direkt fertiger Bericht)
     if pass1_cache_section5 is not None and model in pass1_cache_section5:
@@ -473,19 +483,23 @@ def cleanup_old_results():
 
 
 def run_computation_task(session_id, file_contents, paste_text):
-    """Führt die eigentliche Berechnung im Hintergrund-Thread aus.
+    """Fuehrt die eigentliche Berechnung im Hintergrund-Thread aus.
+
+    ABLAUF:
+      Phase 1 — Alle gemma4:e4b Pass1-Laeufe (Abschnitte 1-3, 4, 5, 6).
+                 Modell bleibt im VRAM, kein Modell-Swap.
+      Phase 2 — Pass2-Laeufe fuer Abschnitte 4 und 6, je Kombi anderes Modell.
 
     Args:
-        session_id: Session-ID für Fortschrittsupdates und Ergebnis-Speicherung
-        file_contents: Liste von (filename, content_bytes) Tupeln (Dateien bereits eingelesen)
-        paste_text: Eingefügter Text
+        session_id: Session-ID fuer Fortschrittsupdates und Ergebnis-Speicherung
+        file_contents: Liste von (filename, content_bytes) Tupeln
+        paste_text: Eingefuegter Text
     """
     from werkzeug.datastructures import FileStorage
 
     try:
         question = "Erstelle den Bericht fuer die hochgeladenen Patientendaten."
 
-        # Rekonstruiere FileStorage-Objekte aus den Bytes
         def create_file_storages():
             files = []
             for filename, content_bytes in file_contents:
@@ -497,39 +511,105 @@ def run_computation_task(session_id, file_contents, paste_text):
                 files.append(file_obj)
             return files
 
-        # Caches fuer Pass1-Ergebnisse (fuer jede Abschnittsgruppe separat)
-        pass1_cache = {}
-        pass1_cache_section4 = {}
-        pass1_cache_section5 = {}
-        pass1_cache_section6 = {}
-
-        # Timing-Log fuer alle Durchlaeufe
         timing_log = []
 
-        # Speichere Abschnitte pro Kombination separat
+        # ================================================================
+        # PHASE 1: Alle gemma4:e4b Pass1-Laeufe (Modell bleibt im VRAM)
+        # ================================================================
+
+        # 1a: Abschnitte 1-3
+        send_progress(session_id, {"combo": 1, "section": "1-3", "pass": 1, "status": "running"})
+        t0 = time.time()
+        result_13 = run_pass1(
+            create_file_storages(), paste_text,
+            question, PROMPT1, "gemma4:e4b", 1, session_id
+        )
+        timing_log.append({"combo": "shared", "section": "1-3", "pass": 1, "model": "gemma4:e4b",
+                            "duration": round(time.time() - t0, 1), "cached": False})
+
+        # 1b: Abschnitt 4
+        send_progress(session_id, {"combo": 1, "section": "4", "pass": 1, "status": "running"})
+        t0 = time.time()
+        pass1_section4 = run_pass1(
+            create_file_storages(), paste_text,
+            "Analysiere die Patientendaten fuer Abschnitt 4 (Lebensgeschichte/Bedingungsmodell).",
+            PROMPT4_PASS1, "gemma4:e4b", 1, session_id
+        )
+        timing_log.append({"combo": "shared", "section": "4", "pass": 1, "model": "gemma4:e4b",
+                            "duration": round(time.time() - t0, 1), "cached": False})
+
+        # 1c: Abschnitt 5
+        send_progress(session_id, {"combo": 1, "section": "5", "pass": 1, "status": "running"})
+        t0 = time.time()
+        result_5 = run_pass1(
+            create_file_storages(), paste_text,
+            "Erstelle Abschnitt 5 (Diagnose nach ICD-10) fuer die Patientendaten.",
+            PROMPT5_PASS1, "gemma4:e4b", 1, session_id
+        )
+        timing_log.append({"combo": "shared", "section": "5", "pass": 1, "model": "gemma4:e4b",
+                            "duration": round(time.time() - t0, 1), "cached": False})
+
+        # 1d: Abschnitt 6
+        send_progress(session_id, {"combo": 1, "section": "6", "pass": 1, "status": "running"})
+        t0 = time.time()
+        pass1_section6 = run_pass1(
+            create_file_storages(), paste_text,
+            "Analysiere die Patientendaten fuer Abschnitt 6 (Behandlungsplan/Prognose).",
+            PROMPT6_PASS1, "gemma4:e4b", 1, session_id
+        )
+        timing_log.append({"combo": "shared", "section": "6", "pass": 1, "model": "gemma4:e4b",
+                            "duration": round(time.time() - t0, 1), "cached": False})
+
+        # Phase 1 abgeschlossen — Fortschrittsanzeige fuer alle Kombis setzen
+        for i in range(1, len(MODEL_COMBINATIONS) + 1):
+            send_progress(session_id, {"combo": i, "section": "1-3", "pass": 1, "status": "completed", "cached": i > 1})
+            send_progress(session_id, {"combo": i, "section": "4",   "pass": 1, "status": "completed", "cached": i > 1})
+            send_progress(session_id, {"combo": i, "section": "5",   "pass": 1, "status": "completed", "cached": i > 1})
+            send_progress(session_id, {"combo": i, "section": "6",   "pass": 1, "status": "completed", "cached": i > 1})
+
+        # ================================================================
+        # PHASE 2: Pass2-Laeufe (je Kombi anderes Modell)
+        # ================================================================
+
         all_sections_by_combo = []
 
         for i, combo in enumerate(MODEL_COMBINATIONS, 1):
-            combo_section4_5_6 = MODEL_COMBINATIONS_SECTION4_5_6[i-1]
+            combo_s456 = MODEL_COMBINATIONS_SECTION4_5_6[i - 1]
+            pass2_model = combo_s456["pass2"]
+            base_temp = combo_s456.get("pass2_temperature")
 
             send_progress(session_id, {"combo": i, "section": "start", "status": "starting"})
 
-            # Erstelle frische FileStorage-Objekte für diese Iteration
-            uploaded_files = create_file_storages()
+            # Abschnitt 4: Pass2
+            if is_pass1_failed(pass1_section4):
+                result_4 = pass1_section4
+                timing_log.append({"combo": i, "section": "4", "pass": 2, "model": pass2_model,
+                                    "duration": 0, "cached": False, "skipped": True})
+            else:
+                send_progress(session_id, {"combo": i, "section": "4", "pass": 2, "status": "running"})
+                t0 = time.time()
+                result_4 = run_pass2(pass1_section4, PROMPT4_PASS2, pass2_model, i, session_id,
+                                     base_temperature=base_temp)
+                timing_log.append({"combo": i, "section": "4", "pass": 2, "model": pass2_model,
+                                    "duration": round(time.time() - t0, 1), "cached": False})
 
-            result_13 = run_model_combination(
-                combo, uploaded_files, paste_text, question, PROMPT1, None,
-                pass1_cache=pass1_cache, combo_index=i, session_id=session_id, timing_log=timing_log
-            )
+            # Abschnitt 5: kein Pass2 (direkt aus Phase 1)
+            send_progress(session_id, {"combo": i, "section": "5", "pass": 1, "status": "completed", "cached": True})
+            timing_log.append({"combo": i, "section": "5", "pass": 1, "model": "gemma4:e4b",
+                                "duration": 0, "cached": True})
 
-            uploaded_files = create_file_storages()
-            result_4 = run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section4, combo_index=i, session_id=session_id, timing_log=timing_log)
-
-            uploaded_files = create_file_storages()
-            result_5 = run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5, combo_index=i, session_id=session_id, timing_log=timing_log)
-
-            uploaded_files = create_file_storages()
-            result_6 = run_section6(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section6, combo_index=i, session_id=session_id, timing_log=timing_log)
+            # Abschnitt 6: Pass2
+            if is_pass1_failed(pass1_section6):
+                result_6 = pass1_section6
+                timing_log.append({"combo": i, "section": "6", "pass": 2, "model": pass2_model,
+                                    "duration": 0, "cached": False, "skipped": True})
+            else:
+                send_progress(session_id, {"combo": i, "section": "6", "pass": 2, "status": "running"})
+                t0 = time.time()
+                result_6 = run_pass2(pass1_section6, PROMPT6_PASS2, pass2_model, i, session_id,
+                                     base_temperature=base_temp)
+                timing_log.append({"combo": i, "section": "6", "pass": 2, "model": pass2_model,
+                                    "duration": round(time.time() - t0, 1), "cached": False})
 
             send_progress(session_id, {"combo": i, "section": "done", "status": "completed"})
 
@@ -562,12 +642,18 @@ def run_computation_task(session_id, file_contents, paste_text):
             html_sections = [format_text_as_html(section) for section in parsed_result]
             html_results.append(html_sections)
 
-        model_names = [f"{combo['pass1']} + {combo['pass2']}" for combo in MODEL_COMBINATIONS]
+        # Modellnamen fuer Spaltenheader (Kombi 3 mit Temperatur kennzeichnen)
+        model_names = []
+        for combo in MODEL_COMBINATIONS:
+            temp = combo.get("pass2_temperature")
+            if temp is not None:
+                model_names.append(f"{combo['pass1']} + {combo['pass2']} (T={temp})")
+            else:
+                model_names.append(f"{combo['pass1']} + {combo['pass2']}")
 
         docx_bytes = docx_output.read()
         docx_base64 = base64.b64encode(docx_bytes).decode('utf-8')
 
-        # Ergebnis speichern für späteren Abruf (mit Timestamp für Cleanup)
         result_data = {
             "docx_base64": docx_base64,
             "sections": SECTION_HEADERS,
@@ -581,10 +667,7 @@ def run_computation_task(session_id, file_contents, paste_text):
         completed_results[session_id] = result_data
         running_tasks[session_id] = {"status": "completed"}
 
-        # Signalisiere Fertigstellung
         send_progress(session_id, "DONE")
-
-        # Cleanup alter Ergebnisse
         cleanup_old_results()
 
     except Exception as e:
@@ -592,7 +675,7 @@ def run_computation_task(session_id, file_contents, paste_text):
         error_msg = f"{str(e)}\n{traceback.format_exc()}"
         running_tasks[session_id] = {"status": "error", "error": str(e)}
         send_progress(session_id, {"status": "error", "error": str(e)})
-        print(f"[ERROR] Berechnung für Session {session_id} fehlgeschlagen: {error_msg}")
+        print(f"[ERROR] Berechnung fuer Session {session_id} fehlgeschlagen: {error_msg}")
 
 
 @app.route("/ask-compare", methods=["POST"])
