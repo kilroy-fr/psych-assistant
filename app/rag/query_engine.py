@@ -3,7 +3,7 @@ import tempfile
 import logging
 import requests
 
-from llama_index.core import VectorStoreIndex, Settings, SimpleDirectoryReader
+from llama_index.core import Settings
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.ollama import OllamaEmbedding
 from typing import Optional
@@ -44,41 +44,64 @@ def get_index():
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx"}
 
 
-def build_temp_index_from_uploaded_files(uploaded_files):
+def extract_text_from_files(uploaded_files):
     """
-    Baut einen temporären Index aus hochgeladenen Dateien.
-    Unterstützt: PDF, TXT, DOCX
+    Extrahiert Text direkt aus hochgeladenen Dateien.
+    Verwendet python-docx fuer DOCX, pypdf fuer PDF, direktes Lesen fuer TXT.
+    Gibt eine Liste von Texten zurueck (je Datei einen Eintrag).
     """
     if not uploaded_files:
-        return None
+        return []
 
+    texts = []
     tmpdir = tempfile.mkdtemp(prefix="uploaded_docs_")
-    file_paths = []
 
     for f in uploaded_files:
         filename = f.filename or ""
         ext = os.path.splitext(filename)[1].lower()
 
         if ext not in ALLOWED_EXTENSIONS:
-            # andere Dateitypen ignorieren
             continue
 
         safe_name = secure_filename(filename)
         path = os.path.join(tmpdir, safe_name)
         f.save(path)
-        file_paths.append(path)
 
-    if not file_paths:
-        return None
+        try:
+            text = ""
+            if ext == ".txt":
+                with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                    text = fh.read()
+            elif ext == ".docx":
+                from docx import Document as DocxDocument
+                doc = DocxDocument(path)
+                text = "\n".join(para.text for para in doc.paragraphs if para.text.strip())
+            elif ext == ".pdf":
+                try:
+                    from pypdf import PdfReader
+                    reader = PdfReader(path)
+                    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+                except ImportError:
+                    try:
+                        import pdfplumber
+                        with pdfplumber.open(path) as pdf:
+                            text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+                    except ImportError:
+                        diag_logger.warning(f"Kein PDF-Parser verfuegbar fuer {filename}")
 
-    # SimpleDirectoryReader kann pdf/txt/docx verarbeiten,
-    # sofern die passenden Parser-Pakete installiert sind.
-    docs = SimpleDirectoryReader(input_files=file_paths).load_data()
-    temp_index = VectorStoreIndex.from_documents(
-        docs,
-        embed_model=Settings.embed_model
-    )
-    return temp_index
+            if text.strip():
+                texts.append(text)
+                diag_logger.info(
+                    f"Datei extrahiert: {filename} ({len(text)} Zeichen) | "
+                    f"Vorschau: {repr(text[:300])}"
+                )
+            else:
+                diag_logger.warning(f"Datei leer nach Extraktion: {filename} ({ext})")
+
+        except Exception as e:
+            diag_logger.error(f"Fehler beim Laden von {filename}: {e}")
+
+    return texts
 
 
 def answer_question(
@@ -187,9 +210,9 @@ def answer_question(
     # 1) Basis-Index laden
     base_index = get_index()
 
-    # 2) Optional: hochgeladene Dateien als Zusatzkontext laden
+    # 2) Optional: hochgeladene Dateien als Zusatzkontext laden (direkte Textextraktion)
     upload_context = ""
-    temp_index = build_temp_index_from_uploaded_files(uploaded_files)
+    doc_chunks = []
 
     def build_upload_context(chunks):
         ctx = "\n\n=== HOCHGELADENE PATIENTENDATEN (vollständig) ===\n"
@@ -198,28 +221,19 @@ def answer_question(
         ctx += "\n=== ENDE PATIENTENDATEN ===\n"
         return ctx
 
-    doc_chunks = []  # einzelne Chunks für spätere Kürzung zugänglich halten
-    if temp_index is None:
-        diag_logger.warning(f"RAG: temp_index ist None - keine Patientendaten geladen! "
-                            f"uploaded_files={len(uploaded_files or [])} Dateien")
-    else:
-        # Für Pass 1: ALLE Patientendaten komplett laden, nicht nur ähnliche Chunks
-        # Die Frage ist generisch ("Analysiere Patientendaten"), daher ist Similarity-Search suboptimal
-        # Besser: Alle Chunks einbeziehen
-        all_doc_ids = list(temp_index.docstore.docs.keys())
-        total_chunks = len(all_doc_ids)
-
-        # Verwende ALLE Chunks für maximale Vollständigkeit (bis zu einem sinnvollen Limit)
-        max_chunks = min(total_chunks, 100)  # Limit bei 100 Chunks um nicht zu überladen
-
-        # Hole alle Dokumente direkt aus dem docstore statt via Retriever
-        for doc_id in all_doc_ids[:max_chunks]:
-            doc = temp_index.docstore.get_document(doc_id)
-            doc_chunks.append(doc.text)
-
-        upload_context = build_upload_context(doc_chunks)
-        diag_logger.info(f"RAG: {len(doc_chunks)}/{total_chunks} Chunks geladen, "
-                         f"upload_context={len(upload_context)} Zeichen")
+    if uploaded_files:
+        doc_chunks = extract_text_from_files(uploaded_files)
+        if doc_chunks:
+            upload_context = build_upload_context(doc_chunks)
+            diag_logger.info(
+                f"RAG: {len(doc_chunks)} Datei(en) geladen, "
+                f"upload_context={len(upload_context)} Zeichen"
+            )
+        else:
+            diag_logger.warning(
+                f"RAG: Keine Textdaten extrahiert aus "
+                f"{len(uploaded_files)} Datei(en)"
+            )
 
     # 3) Context-Größe für RAG-Modus einstellen
     # Pass 1 braucht VIEL Context, weil alle Patientendaten + Guidelines + System-Prompt geladen werden

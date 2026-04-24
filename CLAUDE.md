@@ -15,13 +15,13 @@ Verwendet lokale LLMs via Ollama mit einem Multi-Pass-System und RAG-Integration
 
 ## Modellkombinationen (3 Kombis)
 
-Alle Kombis teilen denselben `pass1`-Lauf (gecacht) — nur `pass2` in Abschnitten 4 und 6 differenziert.
+Alle Kombis teilen Pass1 und den Pass2 für Abschnitte 1-3 und 5 — nur Pass2 für Abschnitte 4 und 6 differenziert.
 
-| Kombi | Pass 1 (alle Abschnitte) | Pass 2 (Abschnitte 4 + 6) |
-|-------|--------------------------|---------------------------|
-| 1 | gemma4:e4b | gpt-oss:20b |
-| 2 | gemma4:e4b | deepseek-r1:14b |
-| 3 | gemma4:e4b | gemma4:e4b (T=0.65) |
+| Kombi | Pass 1 (alle) | Pass 2 (1-3, 5: geteilt) | Pass 2 (4, 6: je Kombi) |
+|-------|---------------|---------------------------|--------------------------|
+| 1 | gemma4:e4b | gemma4:e4b | gpt-oss:20b |
+| 2 | gemma4:e4b | gemma4:e4b | deepseek-r1:14b |
+| 3 | gemma4:e4b | gemma4:e4b | gemma4:e4b (T=0.65) |
 
 `gemma4:e4b` als Pass-1-Modell: MoE-Architektur (27B Gewichte, 4B aktiv) → Inferenzgeschwindigkeit
 wie ein 4B-Modell, Kapazität eines 27B-Modells. Löst Timeout-Problem bei langen Eingabetexten.
@@ -29,15 +29,15 @@ wie ein 4B-Modell, Kapazität eines 27B-Modells. Löst Timeout-Problem bei lange
 Kombi 3 nutzt gemma4:e4b auch als Pass-2-Modell mit höherer Temperatur (0.65 vs. Standard 0.1)
 → kreativere/vielfältigere Formulierungen als Vergleichsvariante.
 
-Abschnitte 1–3 und 5 sind 1-Pass → identisches Ergebnis in allen 3 Kombis.
+Abschnitte 1–3 und 5: 2-Pass mit gemma4:e4b → identisches Ergebnis in allen 3 Kombis.
 
 ### Ausführungsreihenfolge (`run_computation_task`)
 
-**Phase 1** — Alle gemma4:e4b Pass1-Läufe (Abschnitte 1-3, 4, 5, 6 sequenziell).
-Modell bleibt im VRAM, kein Modell-Swap zwischen den Runs.
+**Phase 1** — Alle gemma4:e4b Läufe sequenziell (Modell bleibt im VRAM):
+- Pass1 für Abschnitte 1-3, 4, 5, 6
+- Pass2 für Abschnitte 1-3 und 5 (gemma4:e4b, geteilt)
 
 **Phase 2** — Pass2-Läufe für Abschnitte 4 und 6, je Kombi anderes Modell.
-Abschnitte 1-3 und 5 werden direkt aus Phase-1-Ergebnissen übernommen.
 
 ### Kontextfenster-Logik (`query_engine.py`)
 
@@ -51,9 +51,9 @@ Modellgrößen-Erkennung via Namens-Pattern (`:14b`, `:e4b` etc.) → `num_ctx_r
 
 | Abschnitt | Thema | Methode |
 |-----------|-------|---------|
-| 1-3 | Soziodemographie, Symptomatik, Somatik | 1-Pass (prompt1.txt) |
+| 1-3 | Soziodemographie, Symptomatik, Somatik | 2-Pass (prompt1-1.txt → prompt1-2.txt) |
 | 4 | Lebensgeschichte/Bedingungsmodell | 2-Pass (prompt4-1.txt → prompt4-2.txt) |
-| 5 | Diagnose nach ICD-10 | 1-Pass (prompt5-1.txt) |
+| 5 | Diagnose nach ICD-10 | 2-Pass (prompt5-1.txt → prompt5-2.txt) |
 | 6 | Behandlungsplan/Prognose | 2-Pass (prompt6-1.txt → prompt6-2.txt) |
 
 ## Wichtige Dateien

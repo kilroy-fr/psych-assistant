@@ -58,14 +58,14 @@ debug_logger.addHandler(file_handler)
 MODEL_COMBINATIONS = [
     {"pass1": "gemma4:e4b", "pass2": "gpt-oss:20b"},                              # Kombi 1
     {"pass1": "gemma4:e4b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
-    {"pass1": "gemma4:e4b", "pass2": "gemma4:26b", "pass2_temperature": 0.65},   # Kombi 3: hoehere Temperatur
+    {"pass1": "gemma4:e4b", "pass2": "gemma4:e4b", "pass2_temperature": 0.65},   # Kombi 3: hoehere Temperatur
 ]
 
 # Spezielle Modelle fuer komplexe Abschnitte 4, 5 und 6
 MODEL_COMBINATIONS_SECTION4_5_6 = [
     {"pass1": "gemma4:e4b", "pass2": "gpt-oss:20b"},                              # Kombi 1
     {"pass1": "gemma4:e4b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
-    {"pass1": "gemma4:e4b", "pass2": "gemma4:26b", "pass2_temperature": 0.65},   # Kombi 3
+    {"pass1": "gemma4:e4b", "pass2": "gemma4:e4b", "pass2_temperature": 0.65},   # Kombi 3
 ]
 
 # Abschnitts-Ueberschriften (6 Abschnitte)
@@ -89,19 +89,22 @@ def load_prompt(filename):
     except FileNotFoundError:
         return None
 
-# Prompts für Abschnitte 1-3 (Single-Pass mit Musterbeispiel)
-PROMPT1 = load_prompt("prompt1.txt")
+# Prompts für Abschnitte 1-3 (2-Pass: Extraktion -> Formatierung)
+PROMPT1 = load_prompt("prompt1.txt")           # Nur für DEFAULT_SYSTEM_PROMPT (UI-Anzeige)
+PROMPT1_PASS1 = load_prompt("prompt1-1.txt")  # Pass 1: Fakten-Extraktion
+PROMPT1_PASS2 = load_prompt("prompt1-2.txt")  # Pass 2: Formatierung
 
-# Prompts für Abschnitt 4 (2-Pass: qwen3.1 -> gpt-4o-mini/deepseek)
-PROMPT4_PASS1 = load_prompt("prompt4-1.txt")  # Pass 1: Fakten-Extraktion (qwen3.1)
-PROMPT4_PASS2 = load_prompt("prompt4-2.txt")  # Pass 2: Polishing (gpt-4o-mini/deepseek)
+# Prompts für Abschnitt 4 (2-Pass)
+PROMPT4_PASS1 = load_prompt("prompt4-1.txt")  # Pass 1: Fakten-Extraktion
+PROMPT4_PASS2 = load_prompt("prompt4-2.txt")  # Pass 2: Polishing
 
-# Prompts für Abschnitt 5 (Single-Pass mit Musterbeispiel)
-PROMPT5_PASS1 = load_prompt("prompt5-1.txt")
+# Prompts für Abschnitt 5 (2-Pass: Extraktion -> Formatierung)
+PROMPT5_PASS1 = load_prompt("prompt5-1.txt")  # Pass 1: Fakten-Extraktion
+PROMPT5_PASS2 = load_prompt("prompt5-2.txt")  # Pass 2: Formatierung
 
-# Prompts für Abschnitt 6 (2-Pass: qwen3.1 -> gpt-4o-mini/deepseek)
-PROMPT6_PASS1 = load_prompt("prompt6-1.txt")  # Pass 1: Fakten-Extraktion (qwen3.1)
-PROMPT6_PASS2 = load_prompt("prompt6-2.txt")  # Pass 2: Polishing (gpt-4o-mini/deepseek)
+# Prompts für Abschnitt 6 (2-Pass)
+PROMPT6_PASS1 = load_prompt("prompt6-1.txt")  # Pass 1: Fakten-Extraktion
+PROMPT6_PASS2 = load_prompt("prompt6-2.txt")  # Pass 2: Polishing
 
 # Fallback für altes System
 DEFAULT_SYSTEM_PROMPT = PROMPT1 if PROMPT1 else load_prompt("prompt.txt")
@@ -498,8 +501,6 @@ def run_computation_task(session_id, file_contents, paste_text):
     from werkzeug.datastructures import FileStorage
 
     try:
-        question = "Erstelle den Bericht fuer die hochgeladenen Patientendaten."
-
         def create_file_storages():
             files = []
             for filename, content_bytes in file_contents:
@@ -521,20 +522,19 @@ def run_computation_task(session_id, file_contents, paste_text):
 
         n_combos = len(MODEL_COMBINATIONS)
 
-        # 1a: Abschnitte 1-3
+        # 1a: Abschnitte 1-3 Pass1 (Fakten-Extraktion)
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "1-3", "pass": 1, "status": "running"})
         t0 = time.time()
-        result_13 = run_pass1(
+        pass1_result_13 = run_pass1(
             create_file_storages(), paste_text,
-            question, PROMPT1, "gemma4:e4b", 1, session_id
+            "Extrahiere alle relevanten Fakten fuer die Abschnitte 1-3.",
+            PROMPT1_PASS1, "gemma4:e4b", 1, session_id
         )
         timing_log.append({"combo": "shared", "section": "1-3", "pass": 1, "model": "gemma4:e4b",
                             "duration": round(time.time() - t0, 1), "cached": False})
-        for i in range(1, n_combos + 1):
-            send_progress(session_id, {"combo": i, "section": "1-3", "pass": 1, "status": "section_done", "cached": i > 1})
 
-        # 1b: Abschnitt 4
+        # 1b: Abschnitt 4 Pass1
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "4", "pass": 1, "status": "running"})
         t0 = time.time()
@@ -548,21 +548,19 @@ def run_computation_task(session_id, file_contents, paste_text):
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "4", "pass": 1, "status": "section_done", "cached": i > 1})
 
-        # 1c: Abschnitt 5
+        # 1c: Abschnitt 5 Pass1 (Fakten-Extraktion)
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "5", "pass": 1, "status": "running"})
         t0 = time.time()
-        result_5 = run_pass1(
+        pass1_result_5 = run_pass1(
             create_file_storages(), paste_text,
-            "Erstelle Abschnitt 5 (Diagnose nach ICD-10) fuer die Patientendaten.",
+            "Extrahiere alle diagnostisch relevanten Informationen fuer Abschnitt 5 (Diagnose nach ICD-10).",
             PROMPT5_PASS1, "gemma4:e4b", 1, session_id
         )
         timing_log.append({"combo": "shared", "section": "5", "pass": 1, "model": "gemma4:e4b",
                             "duration": round(time.time() - t0, 1), "cached": False})
-        for i in range(1, n_combos + 1):
-            send_progress(session_id, {"combo": i, "section": "5", "pass": 1, "status": "section_done", "cached": i > 1})
 
-        # 1d: Abschnitt 6
+        # 1d: Abschnitt 6 Pass1
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "6", "pass": 1, "status": "running"})
         t0 = time.time()
@@ -575,6 +573,32 @@ def run_computation_task(session_id, file_contents, paste_text):
                             "duration": round(time.time() - t0, 1), "cached": False})
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "6", "pass": 1, "status": "section_done", "cached": i > 1})
+
+        # 1e: Abschnitte 1-3 Pass2 (Formatierung, gemma4:e4b, geteilt fuer alle Kombis)
+        for i in range(1, n_combos + 1):
+            send_progress(session_id, {"combo": i, "section": "1-3", "pass": 2, "status": "running"})
+        t0 = time.time()
+        if is_pass1_failed(pass1_result_13):
+            result_13 = pass1_result_13
+        else:
+            result_13 = run_pass2(pass1_result_13, PROMPT1_PASS2, "gemma4:e4b")
+        timing_log.append({"combo": "shared", "section": "1-3", "pass": 2, "model": "gemma4:e4b",
+                            "duration": round(time.time() - t0, 1), "cached": False})
+        for i in range(1, n_combos + 1):
+            send_progress(session_id, {"combo": i, "section": "1-3", "pass": 2, "status": "section_done", "cached": i > 1})
+
+        # 1f: Abschnitt 5 Pass2 (Formatierung, gemma4:e4b, geteilt fuer alle Kombis)
+        for i in range(1, n_combos + 1):
+            send_progress(session_id, {"combo": i, "section": "5", "pass": 2, "status": "running"})
+        t0 = time.time()
+        if is_pass1_failed(pass1_result_5):
+            result_5 = pass1_result_5
+        else:
+            result_5 = run_pass2(pass1_result_5, PROMPT5_PASS2, "gemma4:e4b")
+        timing_log.append({"combo": "shared", "section": "5", "pass": 2, "model": "gemma4:e4b",
+                            "duration": round(time.time() - t0, 1), "cached": False})
+        for i in range(1, n_combos + 1):
+            send_progress(session_id, {"combo": i, "section": "5", "pass": 2, "status": "section_done", "cached": i > 1})
 
         # ================================================================
         # PHASE 2: Pass2-Laeufe (je Kombi anderes Modell)
@@ -602,7 +626,7 @@ def run_computation_task(session_id, file_contents, paste_text):
                 timing_log.append({"combo": i, "section": "4", "pass": 2, "model": pass2_model,
                                     "duration": round(time.time() - t0, 1), "cached": False})
 
-            # Abschnitt 5: bereits in Phase 1 abgeschlossen (kein Pass2)
+            # Abschnitt 5: Pass2 bereits in Phase 1 abgeschlossen (gemma4:e4b, geteilt)
 
             # Abschnitt 6: Pass2
             if is_pass1_failed(pass1_section6):
@@ -697,7 +721,7 @@ def ask_compare():
     paste_text = request.form.get("paste_text", "").strip()
     session_id = request.form.get("session_id", str(uuid.uuid4()))
 
-    if not PROMPT1 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT5_PASS1 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
+    if not PROMPT1_PASS1 or not PROMPT1_PASS2 or not PROMPT4_PASS1 or not PROMPT4_PASS2 or not PROMPT5_PASS1 or not PROMPT5_PASS2 or not PROMPT6_PASS1 or not PROMPT6_PASS2:
         return jsonify({"error": "Prompts nicht gefunden"}), 500
 
     # Dateien einlesen (müssen vor Thread-Start eingelesen werden, da Request-Kontext sonst weg ist)
