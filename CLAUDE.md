@@ -19,23 +19,22 @@ Alle Kombis teilen Pass1 und den Pass2 für Abschnitte 1-3 und 5 — nur Pass2 f
 
 | Kombi | Pass 1 (alle) | Pass 2 (1-3, 5: geteilt) | Pass 2 (4, 6: je Kombi) |
 |-------|---------------|---------------------------|--------------------------|
-| 1 | gemma4:e4b | gemma4:e4b | gpt-oss:20b |
-| 2 | gemma4:e4b | gemma4:e4b | deepseek-r1:14b |
-| 3 | gemma4:e4b | gemma4:e4b | gemma4:e4b (T=0.65) |
+| 1 | gemma4:12b | gemma4:12b | gpt-oss:20b |
+| 2 | gemma4:12b | gemma4:12b | deepseek-r1:14b |
+| 3 | gemma4:12b | gemma4:12b | gemma4:12b (T=0.65) |
 
-`gemma4:e4b` als Pass-1-Modell: MoE-Architektur (27B Gewichte, 4B aktiv) → Inferenzgeschwindigkeit
-wie ein 4B-Modell, Kapazität eines 27B-Modells. Löst Timeout-Problem bei langen Eingabetexten.
+`gemma4:12b` als Pass-1-Modell: kompaktes 12B-Modell mit gutem Verhältnis aus Geschwindigkeit und Qualität.
 
-Kombi 3 nutzt gemma4:e4b auch als Pass-2-Modell mit höherer Temperatur (0.65 vs. Standard 0.1)
+Kombi 3 nutzt gemma4:12b auch als Pass-2-Modell mit höherer Temperatur (0.65 vs. Standard 0.1)
 → kreativere/vielfältigere Formulierungen als Vergleichsvariante.
 
-Abschnitte 1–3 und 5: 2-Pass mit gemma4:e4b → identisches Ergebnis in allen 3 Kombis.
+Abschnitte 1–3 und 5: 2-Pass mit gemma4:12b → identisches Ergebnis in allen 3 Kombis.
 
 ### Ausführungsreihenfolge (`run_computation_task`)
 
-**Phase 1** — Alle gemma4:e4b Läufe sequenziell (Modell bleibt im VRAM):
+**Phase 1** — Alle gemma4:12b Läufe sequenziell (Modell bleibt im VRAM):
 - Pass1 für Abschnitte 1-3, 4, 5, 6
-- Pass2 für Abschnitte 1-3 und 5 (gemma4:e4b, geteilt)
+- Pass2 für Abschnitte 1-3 und 5 (gemma4:12b, geteilt)
 
 **Phase 2** — Pass2-Läufe für Abschnitte 4 und 6, je Kombi anderes Modell.
 
@@ -45,7 +44,7 @@ Bei zu langem Eingabetext greift eine zweistufige Kürzung:
 1. Guidelines: 10 → 3 Chunks
 2. Patientendaten: Chunks von hinten entfernen bis Prompt ins Fenster passt
 
-Modellgrößen-Erkennung via Namens-Pattern (`:14b`, `:e4b` etc.) → `num_ctx_rag` 8K–49K.
+Modellgrößen-Erkennung via Namens-Pattern (`:12b`, `:14b` etc.) → `num_ctx_rag` 8K–49K.
 
 ## Berichtsstruktur (6 Abschnitte)
 

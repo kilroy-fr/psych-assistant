@@ -56,16 +56,16 @@ debug_logger.addHandler(file_handler)
 # "pass2" wird nur fuer Abschnitte 4 und 6 verwendet
 # "pass2_temperature": optionale Basis-Temperatur fuer Pass 2 (Default: 0.1)
 MODEL_COMBINATIONS = [
-    {"pass1": "gemma4:e4b", "pass2": "gpt-oss:20b"},                              # Kombi 1
-    {"pass1": "gemma4:e4b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
-    {"pass1": "gemma4:e4b", "pass2": "gemma4:e4b", "pass2_temperature": 0.65},   # Kombi 3: hoehere Temperatur
+    {"pass1": "gemma4:12b", "pass2": "gpt-oss:20b"},                              # Kombi 1
+    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
+    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},   # Kombi 3: hoehere Temperatur
 ]
 
 # Spezielle Modelle fuer komplexe Abschnitte 4, 5 und 6
 MODEL_COMBINATIONS_SECTION4_5_6 = [
-    {"pass1": "gemma4:e4b", "pass2": "gpt-oss:20b"},                              # Kombi 1
-    {"pass1": "gemma4:e4b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
-    {"pass1": "gemma4:e4b", "pass2": "gemma4:e4b", "pass2_temperature": 0.65},   # Kombi 3
+    {"pass1": "gemma4:12b", "pass2": "gpt-oss:20b"},                              # Kombi 1
+    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
+    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},   # Kombi 3
 ]
 
 # Abschnitts-Ueberschriften (6 Abschnitte)
@@ -340,9 +340,9 @@ def run_section4(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_ca
 def run_section5(combo, combo_section4_5_6, uploaded_files, paste_text, pass1_cache_section5=None, combo_index=None, session_id=None, timing_log=None):
     """Generiert Abschnitt 5 (Diagnose nach ICD-10) mit 1-Pass-System.
 
-    Nutzt gemma4:e4b für direkte Berichtserstellung (MoE: schnell wie 4B, Qualität wie 27B).
+    Nutzt gemma4:12b für direkte Berichtserstellung.
     """
-    model = "gemma4:e4b"
+    model = "gemma4:12b"
 
     # Einziger Pass: Aus Cache nehmen oder neu berechnen (direkt fertiger Bericht)
     if pass1_cache_section5 is not None and model in pass1_cache_section5:
@@ -489,7 +489,7 @@ def run_computation_task(session_id, file_contents, paste_text):
     """Fuehrt die eigentliche Berechnung im Hintergrund-Thread aus.
 
     ABLAUF:
-      Phase 1 — Alle gemma4:e4b Pass1-Laeufe (Abschnitte 1-3, 4, 5, 6).
+      Phase 1 — Alle gemma4:12b Pass1-Laeufe (Abschnitte 1-3, 4, 5, 6).
                  Modell bleibt im VRAM, kein Modell-Swap.
       Phase 2 — Pass2-Laeufe fuer Abschnitte 4 und 6, je Kombi anderes Modell.
 
@@ -515,7 +515,7 @@ def run_computation_task(session_id, file_contents, paste_text):
         timing_log = []
 
         # ================================================================
-        # PHASE 1: Alle gemma4:e4b Pass1-Laeufe (Modell bleibt im VRAM)
+        # PHASE 1: Alle gemma4:12b Pass1-Laeufe (Modell bleibt im VRAM)
         # Jeder Abschnitt wird fuer ALLE Kombis gleichzeitig als "running" markiert,
         # da das Ergebnis geteilt wird.
         # ================================================================
@@ -529,9 +529,9 @@ def run_computation_task(session_id, file_contents, paste_text):
         pass1_result_13 = run_pass1(
             create_file_storages(), paste_text,
             "Extrahiere alle relevanten Fakten fuer die Abschnitte 1-3.",
-            PROMPT1_PASS1, "gemma4:e4b", 1, session_id
+            PROMPT1_PASS1, "gemma4:12b", 1, session_id
         )
-        timing_log.append({"combo": "shared", "section": "1-3", "pass": 1, "model": "gemma4:e4b",
+        timing_log.append({"combo": "shared", "section": "1-3", "pass": 1, "model": "gemma4:12b",
                             "duration": round(time.time() - t0, 1), "cached": False})
 
         # 1b: Abschnitt 4 Pass1
@@ -541,9 +541,9 @@ def run_computation_task(session_id, file_contents, paste_text):
         pass1_section4 = run_pass1(
             create_file_storages(), paste_text,
             "Analysiere die Patientendaten fuer Abschnitt 4 (Lebensgeschichte/Bedingungsmodell).",
-            PROMPT4_PASS1, "gemma4:e4b", 1, session_id
+            PROMPT4_PASS1, "gemma4:12b", 1, session_id
         )
-        timing_log.append({"combo": "shared", "section": "4", "pass": 1, "model": "gemma4:e4b",
+        timing_log.append({"combo": "shared", "section": "4", "pass": 1, "model": "gemma4:12b",
                             "duration": round(time.time() - t0, 1), "cached": False})
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "4", "pass": 1, "status": "section_done", "cached": i > 1})
@@ -555,9 +555,9 @@ def run_computation_task(session_id, file_contents, paste_text):
         pass1_result_5 = run_pass1(
             create_file_storages(), paste_text,
             "Extrahiere alle diagnostisch relevanten Informationen fuer Abschnitt 5 (Diagnose nach ICD-10).",
-            PROMPT5_PASS1, "gemma4:e4b", 1, session_id
+            PROMPT5_PASS1, "gemma4:12b", 1, session_id
         )
-        timing_log.append({"combo": "shared", "section": "5", "pass": 1, "model": "gemma4:e4b",
+        timing_log.append({"combo": "shared", "section": "5", "pass": 1, "model": "gemma4:12b",
                             "duration": round(time.time() - t0, 1), "cached": False})
 
         # 1d: Abschnitt 6 Pass1
@@ -567,35 +567,35 @@ def run_computation_task(session_id, file_contents, paste_text):
         pass1_section6 = run_pass1(
             create_file_storages(), paste_text,
             "Analysiere die Patientendaten fuer Abschnitt 6 (Behandlungsplan/Prognose).",
-            PROMPT6_PASS1, "gemma4:e4b", 1, session_id
+            PROMPT6_PASS1, "gemma4:12b", 1, session_id
         )
-        timing_log.append({"combo": "shared", "section": "6", "pass": 1, "model": "gemma4:e4b",
+        timing_log.append({"combo": "shared", "section": "6", "pass": 1, "model": "gemma4:12b",
                             "duration": round(time.time() - t0, 1), "cached": False})
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "6", "pass": 1, "status": "section_done", "cached": i > 1})
 
-        # 1e: Abschnitte 1-3 Pass2 (Formatierung, gemma4:e4b, geteilt fuer alle Kombis)
+        # 1e: Abschnitte 1-3 Pass2 (Formatierung, gemma4:12b, geteilt fuer alle Kombis)
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "1-3", "pass": 2, "status": "running"})
         t0 = time.time()
         if is_pass1_failed(pass1_result_13):
             result_13 = pass1_result_13
         else:
-            result_13 = run_pass2(pass1_result_13, PROMPT1_PASS2, "gemma4:e4b")
-        timing_log.append({"combo": "shared", "section": "1-3", "pass": 2, "model": "gemma4:e4b",
+            result_13 = run_pass2(pass1_result_13, PROMPT1_PASS2, "gemma4:12b")
+        timing_log.append({"combo": "shared", "section": "1-3", "pass": 2, "model": "gemma4:12b",
                             "duration": round(time.time() - t0, 1), "cached": False})
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "1-3", "pass": 2, "status": "section_done", "cached": i > 1})
 
-        # 1f: Abschnitt 5 Pass2 (Formatierung, gemma4:e4b, geteilt fuer alle Kombis)
+        # 1f: Abschnitt 5 Pass2 (Formatierung, gemma4:12b, geteilt fuer alle Kombis)
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "5", "pass": 2, "status": "running"})
         t0 = time.time()
         if is_pass1_failed(pass1_result_5):
             result_5 = pass1_result_5
         else:
-            result_5 = run_pass2(pass1_result_5, PROMPT5_PASS2, "gemma4:e4b")
-        timing_log.append({"combo": "shared", "section": "5", "pass": 2, "model": "gemma4:e4b",
+            result_5 = run_pass2(pass1_result_5, PROMPT5_PASS2, "gemma4:12b")
+        timing_log.append({"combo": "shared", "section": "5", "pass": 2, "model": "gemma4:12b",
                             "duration": round(time.time() - t0, 1), "cached": False})
         for i in range(1, n_combos + 1):
             send_progress(session_id, {"combo": i, "section": "5", "pass": 2, "status": "section_done", "cached": i > 1})
@@ -626,7 +626,7 @@ def run_computation_task(session_id, file_contents, paste_text):
                 timing_log.append({"combo": i, "section": "4", "pass": 2, "model": pass2_model,
                                     "duration": round(time.time() - t0, 1), "cached": False})
 
-            # Abschnitt 5: Pass2 bereits in Phase 1 abgeschlossen (gemma4:e4b, geteilt)
+            # Abschnitt 5: Pass2 bereits in Phase 1 abgeschlossen (gemma4:12b, geteilt)
 
             # Abschnitt 6: Pass2
             if is_pass1_failed(pass1_section6):

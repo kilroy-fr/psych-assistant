@@ -249,8 +249,7 @@ def answer_question(
             logger.info(f"Pass 1: SEHR GROSSES Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Mittlere Modelle (14-34B): Brauchen mehr Context für vollständige Patientendaten
         # WICHTIG: Diese müssen VOR den kleineren Modellen geprüft werden (14b enthält auch "4b"!)
-        # e4b = gemma4 MoE (27B Gewichte, 4B aktiv) → wie mittleres Modell behandeln
-        elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['14b', '20b', '27b', '34b']) or ':e4b' in model_lower:
+        elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['14b', '20b', '27b', '34b']):
             num_ctx_rag = 49152  # 48K für mittlere Modelle - verhindert Prompt-Kürzung
             logger.info(f"Pass 1: Mittleres Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Kleine-mittlere Modelle (12-13B): Guter Kompromiss
