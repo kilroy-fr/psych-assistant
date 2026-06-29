@@ -56,16 +56,14 @@ debug_logger.addHandler(file_handler)
 # "pass2" wird nur fuer Abschnitte 4 und 6 verwendet
 # "pass2_temperature": optionale Basis-Temperatur fuer Pass 2 (Default: 0.1)
 MODEL_COMBINATIONS = [
-    {"pass1": "gemma4:12b", "pass2": "gpt-oss:20b"},                              # Kombi 1
-    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
-    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},   # Kombi 3: hoehere Temperatur
+    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},                          # Kombi 1
+    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},   # Kombi 2: hoehere Temperatur
 ]
 
 # Spezielle Modelle fuer komplexe Abschnitte 4, 5 und 6
 MODEL_COMBINATIONS_SECTION4_5_6 = [
-    {"pass1": "gemma4:12b", "pass2": "gpt-oss:20b"},                              # Kombi 1
-    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},                          # Kombi 2
-    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},   # Kombi 3
+    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},                          # Kombi 1
+    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},   # Kombi 2
 ]
 
 # Abschnitts-Ueberschriften (6 Abschnitte)

@@ -13,22 +13,21 @@ Verwendet lokale LLMs via Ollama mit einem Multi-Pass-System und RAG-Integration
 - **Frontend:** Vanilla HTML/CSS/JS (kein Framework)
 - **DOCX-Export:** python-docx
 
-## Modellkombinationen (3 Kombis)
+## Modellkombinationen (2 Kombis)
 
 Alle Kombis teilen Pass1 und den Pass2 für Abschnitte 1-3 und 5 — nur Pass2 für Abschnitte 4 und 6 differenziert.
 
 | Kombi | Pass 1 (alle) | Pass 2 (1-3, 5: geteilt) | Pass 2 (4, 6: je Kombi) |
 |-------|---------------|---------------------------|--------------------------|
-| 1 | gemma4:12b | gemma4:12b | gpt-oss:20b |
-| 2 | gemma4:12b | gemma4:12b | deepseek-r1:14b |
-| 3 | gemma4:12b | gemma4:12b | gemma4:12b (T=0.65) |
+| 1 | gemma4:12b | gemma4:12b | deepseek-r1:14b |
+| 2 | gemma4:12b | gemma4:12b | gemma4:12b (T=0.65) |
 
 `gemma4:12b` als Pass-1-Modell: kompaktes 12B-Modell mit gutem Verhältnis aus Geschwindigkeit und Qualität.
 
-Kombi 3 nutzt gemma4:12b auch als Pass-2-Modell mit höherer Temperatur (0.65 vs. Standard 0.1)
+Kombi 2 nutzt gemma4:12b auch als Pass-2-Modell mit höherer Temperatur (0.65 vs. Standard 0.1)
 → kreativere/vielfältigere Formulierungen als Vergleichsvariante.
 
-Abschnitte 1–3 und 5: 2-Pass mit gemma4:12b → identisches Ergebnis in allen 3 Kombis.
+Abschnitte 1–3 und 5: 2-Pass mit gemma4:12b → identisches Ergebnis in allen 2 Kombis.
 
 ### Ausführungsreihenfolge (`run_computation_task`)
 
