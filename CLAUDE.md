@@ -13,6 +13,10 @@ Verwendet lokale LLMs via Ollama mit einem Multi-Pass-System und RAG-Integration
 - **Frontend:** Vanilla HTML/CSS/JS (kein Framework)
 - **DOCX-Export:** python-docx
 
+Abhängigkeiten in `requirements.txt` sind exakt gepinnt (inkl. `pydantic`), damit
+`docker-compose up --build` reproduzierbar bleibt. `llama-index` und `llama-index-core`
+müssen dieselbe Version haben — `llama-index` pinnt `llama-index-core` exakt.
+
 ## Modellkombinationen (2 Kombis)
 
 Alle Kombis teilen Pass1 und den Pass2 für Abschnitte 1-3 und 5 — nur Pass2 für Abschnitte 4 und 6 differenziert.
@@ -45,6 +49,22 @@ Bei zu langem Eingabetext greift eine zweistufige Kürzung:
 
 Modellgrößen-Erkennung via Namens-Pattern (`:12b`, `:14b` etc.) → `num_ctx_rag` 8K–49K.
 
+### Index-Aktualität (`build_index.py`)
+
+`build_index()` schreibt beim Neubau einen Fingerabdruck nach `storage/index_fingerprint.json`
+und vergleicht ihn bei jedem Start. Enthalten sind:
+
+- SHA-256 jeder Datei in `data/guidelines/` (erkennt geänderte, neue, gelöschte Dateien)
+- Hash von `DOCUMENT_METADATA` (geänderte Rollenzuweisung erzwingt Neubau)
+- Name des Embedding-Modells (`nomic-embed-text`)
+- Formatversion des Fingerabdrucks (`FINGERPRINT_VERSION`)
+
+Bei Abweichung wird der Index automatisch neu gebaut und der Grund geloggt.
+Der Fingerabdruck wird erst nach erfolgreichem Persistieren geschrieben — bricht der
+Build ab (z.B. Ollama nicht erreichbar), gilt der Index weiterhin als veraltet.
+
+`build_index(force_rebuild=True)` erzwingt einen Neubau.
+
 ## Berichtsstruktur (6 Abschnitte)
 
 | Abschnitt | Thema | Methode |
@@ -62,8 +82,11 @@ Modellgrößen-Erkennung via Namens-Pattern (`:12b`, `:14b` etc.) → `num_ctx_r
 - `app/rag/build_index.py` — Index-Erstellung aus Leitlinien-Dokumenten
 - `app/static/main.js` — Frontend-Logik (SSE, Vergleichstabelle)
 - `app/templates/index.html` — Hauptseite
-- `prompt*_m.txt` — Männliche Prompt-Varianten (Genus-Anpassung)
-- `data/guidelines/` — Leitlinien und Checklisten für RAG
+- `data/guidelines/` — Leitlinien und Checklisten für RAG (6 Dateien, JSON + TXT)
+
+`prompt*_m.txt` (männliche Varianten) liegen im Repo, werden aber **nicht verwendet**:
+weder von `app.py` geladen noch im Dockerfile ins Image kopiert. Die Genus-Anpassung
+läuft stattdessen über das `alternatives`-Array im Report-Schema (`docx_generator.py`).
 
 ## Konventionen
 
@@ -80,8 +103,26 @@ docker-compose up -d --build
 
 # Logs prüfen
 docker logs -f psych-assistant
+```
 
-# Index neu erstellen
+### RAG-Index
+
+Geänderte Dateien in `data/guidelines/` werden automatisch erkannt — ein Neustart
+genügt, der Index wird beim nächsten Zugriff neu gebaut:
+
+```bash
+docker restart psych-assistant
+```
+
+Vollständiger Reset (z.B. bei beschädigtem Storage):
+
+```bash
 docker exec psych-assistant rm -rf /app/storage/*
 docker restart psych-assistant
+```
+
+Index-Zustand prüfen:
+
+```bash
+docker exec psych-assistant python -c "from app.rag.build_index import build_index; i = build_index(); print(len(i.docstore.docs), 'Nodes')"
 ```
