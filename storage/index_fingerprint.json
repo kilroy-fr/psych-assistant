@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "embed_model": "nomic-embed-text",
+  "metadata_hash": "bbacd16f404ad02d80bdc73784604e11057e21c50359e9d0dc5a2d5f22554bcc",
+  "files": {
+    "EM.txt": "84faa8c798ed68c6a250d821284b93d9217987cefeaf929d8e5854d7892846c9",
+    "SORC.json": "7e54a3136808b4a0fbb840be1ecb023a560bc1732dbe4d712939f269f0763cc7",
+    "biographische_anamnese_leitfaden.json": "46df6476efe19387588d29d2e5b3dd3051e10195d42c61521319217e5778d00e",
+    "checkliste_vt_beihilfe.json": "34483c93d57554d615c2134f8c3b4889feef08bbd0de2e7ba9ad0a9a2b65817d",
+    "psychopathologischer_befund.json": "89fd87e5b0ff93fd4e280b7d84253e107fd467e607100d93af8a202d80685328",
+    "report_schema_vt_umwandlung.json": "b78afc7f1378903fba5e9e35a59c98b1c672f5d841e8a71f9e2537c56240ea52"
+  }
+}
