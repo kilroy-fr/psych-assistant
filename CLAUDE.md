@@ -13,9 +13,36 @@ Verwendet lokale LLMs via Ollama mit einem Multi-Pass-System und RAG-Integration
 - **Frontend:** Vanilla HTML/CSS/JS (kein Framework)
 - **DOCX-Export:** python-docx
 
-Abhängigkeiten in `requirements.txt` sind exakt gepinnt (inkl. `pydantic`), damit
-`docker-compose up --build` reproduzierbar bleibt. `llama-index` und `llama-index-core`
-müssen dieselbe Version haben — `llama-index` pinnt `llama-index-core` exakt.
+## Abhängigkeiten
+
+Alle Pakete in `requirements.txt` sind exakt gepinnt (inkl. `pydantic`), damit
+`docker-compose up --build` reproduzierbar bleibt. Stand: September 2026.
+
+| Paket | Version | Rolle |
+|-------|---------|-------|
+| `flask` | 3.1.3 | Web-Backend, SSE, Datei-Upload |
+| `llama-index` / `llama-index-core` | 0.14.24 | RAG-Framework, Vector-Store |
+| `llama-index-llms-ollama` | 0.11.0 | LLM-Anbindung (LlamaIndex-Seite) |
+| `llama-index-embeddings-ollama` | 0.10.0 | Embeddings via `nomic-embed-text` |
+| `pydantic` | 2.13.5 | Transitiv über LlamaIndex, bewusst gepinnt |
+| `requests` | 2.34.2 | Direkte Ollama-API-Calls (`/api/generate`, `/api/tags`) |
+| `python-docx` | 1.2.0 | DOCX-Export **und** DOCX-Upload-Parsing |
+| `pypdf` | 6.18.1 | PDF-Upload-Parsing (`extract_text_from_files`) |
+
+Regeln beim Anheben von Versionen:
+
+- `llama-index` und `llama-index-core` müssen dieselbe Version haben — `llama-index`
+  pinnt `llama-index-core` exakt (`>=0.14.24,<0.15.0`).
+- `pypdf` ist keine optionale Abhängigkeit: `extract_text_from_files()` in
+  `query_engine.py` fängt den `ImportError` ab und fällt auf `pdfplumber` zurück;
+  fehlen beide, werden hochgeladene PDFs **stillschweigend** als leer behandelt.
+  `pdfplumber` ist nicht installiert, `pypdf` ist damit der einzige PDF-Pfad.
+- `docx2txt` und `python-dotenv` wurden entfernt (September 2026) — beide wurden
+  nirgends importiert. `docx2txt` würde nur gebraucht, wenn `data/guidelines/`
+  DOCX-Dateien enthielte; der `SimpleDirectoryReader` liest dort aktuell nur JSON und TXT.
+
+Nach jeder Änderung an `requirements.txt` ist ein Image-Neubau nötig:
+`docker-compose up -d --build`.
 
 ## Modellkombinationen (2 Kombis)
 
@@ -32,6 +59,24 @@ Kombi 2 nutzt gemma4:12b auch als Pass-2-Modell mit höherer Temperatur (0.65 vs
 → kreativere/vielfältigere Formulierungen als Vergleichsvariante.
 
 Abschnitte 1–3 und 5: 2-Pass mit gemma4:12b → identisches Ergebnis in allen 2 Kombis.
+
+### Wo die Modellnamen wirklich stehen
+
+Achtung beim Umstellen von Modellen — die Namen liegen an drei Stellen in `app.py`:
+
+1. **`MODEL_COMBINATIONS`** bestimmt nur noch die *Anzahl* der Kombis (`n_combos`) und
+   die Modellnamen in der Vergleichstabelle der UI. Der Wert `pass1` wird von
+   `run_computation_task()` **nicht** gelesen.
+2. **`MODEL_COMBINATIONS_SECTION4_5_6`** liefert das tatsächlich benutzte Pass-2-Modell
+   und `pass2_temperature` für die Abschnitte 4 und 6.
+3. **Hartkodierte `"gemma4:12b"`-Literale** in `run_computation_task()` für alle
+   Pass-1-Läufe sowie für Pass 2 der Abschnitte 1-3 und 5.
+
+Ein Modellwechsel muss deshalb in beiden Listen *und* bei den Literalen erfolgen,
+sonst zeigt die UI ein anderes Modell an als gerechnet wurde.
+
+Die Helfer `run_section4()`, `run_section5()` und `run_section6()` sind Altlasten aus
+der Zeit vor `run_computation_task()` und werden nirgends mehr aufgerufen.
 
 ### Ausführungsreihenfolge (`run_computation_task`)
 

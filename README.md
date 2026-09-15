@@ -66,6 +66,29 @@ ollama pull deepseek-r1:14b    # Pass 2 der Abschnitte 4 und 6 (Kombi 1)
 ollama pull nomic-embed-text   # RAG-Embeddings
 ```
 
+### Python-Abhängigkeiten
+
+Alle Pakete sind in `requirements.txt` exakt gepinnt und werden beim Image-Bau
+installiert -- eine lokale Python-Installation ist für den Betrieb nicht nötig.
+Stand: September 2026.
+
+| Paket | Version | Wofür |
+|-------|---------|-------|
+| flask | 3.1.3 | Web-Backend, Server-Sent Events, Datei-Upload |
+| llama-index / llama-index-core | 0.14.24 | RAG-Framework und Vector-Store |
+| llama-index-llms-ollama | 0.11.0 | LLM-Anbindung an Ollama |
+| llama-index-embeddings-ollama | 0.10.0 | Embeddings (`nomic-embed-text`) |
+| pydantic | 2.13.5 | Transitive Abhängigkeit, bewusst gepinnt |
+| requests | 2.34.2 | Direkte Aufrufe der Ollama-HTTP-API |
+| python-docx | 1.2.0 | DOCX-Export und Einlesen hochgeladener DOCX-Dateien |
+| pypdf | 6.18.1 | Einlesen hochgeladener PDF-Dateien |
+
+Nach einer Änderung an `requirements.txt` muss das Image neu gebaut werden:
+
+```bash
+docker-compose up -d --build
+```
+
 ## Installation
 
 1. **Repository klonen:**
@@ -97,10 +120,17 @@ Der Ollama-Host wird über die Umgebungsvariable `OLLAMA_HOST` konfiguriert (Sta
 
 ### Modellkombinationen
 
-Die verwendeten Modelle können in [app/app.py](app/app.py) angepasst werden:
+Die verwendeten Modelle stehen in [app/app.py](app/app.py):
 
 ```python
+# Steuert die Anzahl der Kombis und die Beschriftung der Vergleichstabelle
 MODEL_COMBINATIONS = [
+    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},
+    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},
+]
+
+# Liefert das tatsaechlich benutzte Pass-2-Modell fuer die Abschnitte 4 und 6
+MODEL_COMBINATIONS_SECTION4_5_6 = [
     {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},
     {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},
 ]
@@ -108,6 +138,18 @@ MODEL_COMBINATIONS = [
 
 `pass2_temperature` ist optional und steuert die Basis-Temperatur von Pass 2
 (Standard: 0.1).
+
+**Wichtig beim Modellwechsel:** die beiden Listen sind nicht die einzige Stelle.
+
+- Das Pass-2-Modell der Abschnitte 4 und 6 kommt aus `MODEL_COMBINATIONS_SECTION4_5_6`.
+- `MODEL_COMBINATIONS` wird für die Anzahl der Kombis und für die Modellnamen in der
+  UI-Vergleichstabelle gelesen -- der dortige `pass1`-Wert steuert die Berechnung nicht.
+- Alle Pass-1-Läufe sowie Pass 2 der Abschnitte 1-3 und 5 verwenden ein hartkodiertes
+  `"gemma4:12b"` in `run_computation_task()`.
+
+Wer das Modell tauscht, muss deshalb beide Listen *und* die Literale in
+`run_computation_task()` anpassen -- sonst weicht die Beschriftung in der UI vom
+tatsächlich gerechneten Modell ab.
 
 ### RAG-Wissensbasis
 
@@ -164,7 +206,8 @@ psych-assistant/
 ## Verwendung
 
 1. Anwendung im Browser öffnen (`http://localhost:5005`)
-2. Patientendaten als **Text einfügen** oder **Datei hochladen** (PDF, DOCX, TXT)
+2. Patientendaten als **Text einfügen** oder **Datei hochladen** (PDF, DOCX, TXT --
+   PDF wird über `pypdf`, DOCX über `python-docx` eingelesen)
 3. **"Bericht erstellen"** klicken
 4. Der Fortschritt wird live per Server-Sent Events angezeigt
 5. Nach Abschluss: Ergebnisse der Modellkombinationen in einer **Vergleichstabelle** sehen
