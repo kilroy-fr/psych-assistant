@@ -782,5 +782,12 @@ def create_text():
 
 
 if __name__ == "__main__":
-    # fuer lokale Tests ohne Docker
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Auch der Einstiegspunkt im Container (Dockerfile: CMD python -m app.app).
+    # Debug daher standardmaessig AUS: der Werkzeug-Debugger wuerde bei jeder
+    # Exception eine interaktive Konsole ausliefern. Nur lokal per
+    # FLASK_DEBUG=1 einschalten, nie im ueber Caddy erreichbaren Container.
+    debug_mode = os.getenv("FLASK_DEBUG", "0").strip().lower() in ("1", "true", "yes")
+
+    # threaded=True ist Pflicht: die SSE-Route /progress/<session_id> haelt eine
+    # Verbindung offen, waehrend die Berechnung im Hintergrund-Thread laeuft.
+    app.run(host="0.0.0.0", port=5000, debug=debug_mode, threaded=True)
