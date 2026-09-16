@@ -602,10 +602,21 @@ def run_computation_task(session_id, file_contents, paste_text):
         # PHASE 2: Pass2-Laeufe (je Kombi anderes Modell)
         # ================================================================
 
-        all_sections_by_combo = []
+        # Ausfuehrungsreihenfolge: Kombis, deren Pass2-Modell schon aus Phase 1
+        # im VRAM liegt, laufen zuerst. Sonst wird gemma4:12b entladen,
+        # deepseek-r1:14b geladen und gemma4:12b danach ein zweites Mal geladen.
+        # Die Reihenfolge der Ergebnisse bleibt davon unberuehrt: geschrieben
+        # wird nach Kombi-Index in results_by_combo, nicht in Ausfuehrungsfolge.
+        combo_order = sorted(
+            range(len(MODEL_COMBINATIONS)),
+            key=lambda idx: MODEL_COMBINATIONS_SECTION4_5_6[idx]["pass2"] != "gemma4:12b"
+        )
 
-        for i, combo in enumerate(MODEL_COMBINATIONS, 1):
-            combo_s456 = MODEL_COMBINATIONS_SECTION4_5_6[i - 1]
+        results_by_combo = [None] * len(MODEL_COMBINATIONS)
+
+        for idx in combo_order:
+            i = idx + 1
+            combo_s456 = MODEL_COMBINATIONS_SECTION4_5_6[idx]
             pass2_model = combo_s456["pass2"]
             base_temp = combo_s456.get("pass2_temperature")
 
@@ -646,7 +657,9 @@ def run_computation_task(session_id, file_contents, paste_text):
                 sections_13[0], sections_13[1], sections_13[2],
                 result_4, result_5, result_6
             ]
-            all_sections_by_combo.append(combo_sections)
+            results_by_combo[idx] = combo_sections
+
+        all_sections_by_combo = results_by_combo
 
         # Post-Processing
         parsed_results = []
