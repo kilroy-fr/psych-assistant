@@ -86,6 +86,22 @@ der Zeit vor `run_computation_task()` und werden nirgends mehr aufgerufen.
 
 **Phase 2** — Pass2-Läufe für Abschnitte 4 und 6, je Kombi anderes Modell.
 
+Die Kombis laufen dabei **nicht** in Kombi-Reihenfolge, sondern sortiert: Kombis,
+deren Pass-2-Modell schon aus Phase 1 im VRAM liegt (`gemma4:12b`), zuerst. Sonst
+würde gemma entladen, deepseek geladen und gemma danach ein zweites Mal geladen.
+Die Sortierung ist stabil — kommen weitere Kombis dazu, wandern alle gemma-Kombis
+nach vorn, der Rest behält seine relative Ordnung.
+
+Die Ergebnisse werden deshalb per Index in ein vorbelegtes `results_by_combo`
+geschrieben, nicht per `append()`. Das hält die Kombi-Reihenfolge in den
+DOCX-Spalten und der Vergleichstabelle stabil, weil beide ihre Modellnamen aus
+`MODEL_COMBINATIONS` in Originalreihenfolge ziehen. Wer die Schleife anfasst:
+Ausführungsreihenfolge und Ergebnisreihenfolge sind hier bewusst entkoppelt.
+
+In der Fortschrittsanzeige leuchtet dadurch Kombi 2 vor Kombi 1 auf — das ist
+korrekt, sie wird ja auch zuerst gerechnet. Die Zeitentabelle sortiert in
+`renderTimingTable()` selbst nach Kombi und bleibt unbeeinflusst.
+
 ### Kontextfenster-Logik (`query_engine.py`)
 
 Bei zu langem Eingabetext greift eine zweistufige Kürzung:
