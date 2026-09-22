@@ -178,7 +178,14 @@ def send_progress(session_id, message):
 
 
 def run_pass1(uploaded_files, paste_text, question, prompt1, model_name, combo_index=None, session_id=None):
-    """Fuehrt Pass 1 (Fakten-Extraktion) aus."""
+    """Fuehrt Pass 1 (Fakten-Extraktion) aus.
+
+    Ollama liefert unter Last (mehrere Modell-Container teilen sich die GPU)
+    gelegentlich eine leere Antwort (HTTP 200, response="") statt eines Fehlers
+    -- answer_question() wirft dabei keine Exception. Ohne Retry landete das
+    bisher unbemerkt als leerer Abschnitt im fertigen Bericht, waehrend Pass 2
+    fuer genau diesen Fall schon einen Retry-Mechanismus hat.
+    """
     from werkzeug.datastructures import FileStorage
 
     # Wenn Text eingefuegt wurde, als virtuelle Datei behandeln
@@ -191,16 +198,35 @@ def run_pass1(uploaded_files, paste_text, question, prompt1, model_name, combo_i
         )
         files_to_use = [text_file]
 
-    result = answer_question(
-        question=question,
-        system_prompt=prompt1,
-        uploaded_files=files_to_use,
-        model_name=model_name,
-    )
+    max_attempts = 3
+    result = ""
+    for attempt in range(1, max_attempts + 1):
+        # Streams stehen nach einem Versuch auf EOF (extract_text_from_files
+        # liest sie einmal komplett) -- vor jedem (Retry-)Versuch zuruecksetzen.
+        for f in files_to_use:
+            f.stream.seek(0)
+
+        result = answer_question(
+            question=question,
+            system_prompt=prompt1,
+            uploaded_files=files_to_use,
+            model_name=model_name,
+        )
+
+        if result and result.strip():
+            break
+
+        if attempt < max_attempts:
+            debug_logger.warning(
+                f"Pass 1 LEER (Versuch {attempt}/{max_attempts}), Modell {model_name} - erneuter Versuch"
+            )
 
     debug_logger.info(f"Pass 1 Ergebnis - Modell: {model_name} - Laenge: {len(result)} Zeichen")
     if not result or not result.strip():
-        debug_logger.warning(f"Pass 1 LEER! Modell {model_name} hat nichts zurueckgegeben.")
+        debug_logger.warning(
+            f"Pass 1 LEER nach {max_attempts} Versuchen! Modell {model_name} hat nichts zurueckgegeben."
+        )
+        return f"❌ Pass 1 lieferte nach {max_attempts} Versuchen kein Ergebnis (Modell: {model_name})."
     elif result.startswith("⏱️") or result.startswith("❌"):
         debug_logger.warning(f"Pass 1 FEHLER: {result[:200]}")
     else:

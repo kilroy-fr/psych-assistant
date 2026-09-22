@@ -187,6 +187,12 @@ def answer_question(
                 "model": model_name or DEFAULT_MODEL,
                 "prompt": prompt,
                 "stream": False,
+                # Denkfaehige Modelle (z.B. gemma4) verbrauchen sonst das komplette
+                # num_predict-Budget fuer unsichtbare Reasoning-Tokens, bevor die
+                # eigentliche Antwort beginnt -- response landet dann leer bei
+                # done_reason="length". Fuer deterministische Formulierung/Extraktion
+                # wird kein Reasoning gebraucht.
+                "think": False,
                 "options": {
                     "temperature": temp,
                     "num_ctx": num_ctx,
@@ -339,6 +345,12 @@ Frage: {question}"""
             "model": model_name or DEFAULT_MODEL,
             "prompt": full_prompt,
             "stream": False,
+            # Denkfaehige Modelle (z.B. gemma4) verbrauchen sonst das komplette
+            # num_predict-Budget fuer unsichtbare Reasoning-Tokens, bevor die
+            # eigentliche Fakten-Extraktion beginnt -- response landet dann leer
+            # bei done_reason="length" (beobachtet bei grossen Pass-1-Prompts mit
+            # gemma4:12b, siehe debug_results.log). Reasoning bringt hier nichts.
+            "think": False,
             "options": {
                 "temperature": 0.3,  # Etwas höher für bessere Extraktion
                 "num_ctx": num_ctx_rag,
