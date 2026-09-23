@@ -9,3 +9,6 @@ data/debug_results.log
 certs
 storage
 __pycache__
+
+# Testakten (anonymisierte Originalakten)
+testakten

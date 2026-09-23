@@ -14,7 +14,8 @@ WICHTIGE REGELN:
 DIAGNOSTISCHE REGELN (ICD-10, verbindlich):
 - Schweregrad der Episode am AKTUELLEN Zustand ausrichten: jüngster Testwert (z.B. BDI-II) und aktueller Befund. Liegt der jüngste Wert im unauffälligen Bereich UND beschreibt auch der aktuelle Befund keine relevante depressive Symptomatik mehr, ist die Episode als remittiert zu kodieren (bei F33: F33.4), nicht als leicht/mittel/schwer. Widersprechen sich Testwert und Befund, beides nennen. Den zugrunde gelegten Testwert mit Datum nennen.
 - F33 (rezidivierend) nur, wenn eine frühere depressive Episode in den Daten belegt ist. Sonst F32.
-- F43.2 (Anpassungsstörung) NICHT zusätzlich kodieren, wenn die Kriterien einer depressiven Episode (F32/F33) erfüllt sind.
+- F43.2 (Anpassungsstörung) NICHT zusätzlich kodieren, wenn die Kriterien einer depressiven Episode (F32/F33) erfüllt sind — auch dann nicht, wenn die Akte F43.2 früher einmal kodiert hat.
+- Kodierungen in der Akte ({F33.1 G} = gesichert, {F84.0 V} = Verdacht) sind die Diagnosen der Behandlerin: welche Störungen Haupt- und Nebendiagnose sind, richtet sich nach den JÜNGSTEN gesicherten (G) Codes; den Schweregrad einer depressiven Episode nach der Regel oben bestimmen. Verdachtsdiagnosen (V) nur als Differenzialdiagnose. Ältere, später nicht mehr kodierte Diagnosen nicht übernehmen.
 - Nebendiagnosen nur für AKTUELL bestehende Störungen. Abgeklungene Störungen (z.B. frühere Essstörung) gehören in die Vorgeschichte, nicht in die Diagnosen. Für jede Nebendiagnose angeben, wann die Symptomatik zuletzt in den Daten beschrieben ist. Ist sie nur für die Vergangenheit belegt, KEINE Nebendiagnose.
 - Jeder Code vollständig (z.B. F41.1, nicht F41.x) und mit der offiziellen ICD-10-Bezeichnung, keine eigene Umschreibung. Ist der Subtyp aus den Daten nicht bestimmbar, dies ausdrücklich sagen.
 - Eine Störung ist ENTWEDER Neben- ODER Differenzialdiagnose, nie beides.

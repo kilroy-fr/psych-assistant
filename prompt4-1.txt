@@ -15,7 +15,7 @@ WICHTIGE REGELN:
 - Biographische FAKTEN (Todesfälle, Trennungen, Heirat, Geburten, Jahreszahlen) dagegen NUR übernehmen, wenn sie ausdrücklich die Patientin/den Patienten betreffen. Die Notizen berichten auch über andere Personen (Freundinnen, Geschwister, Kinder) — deren Erlebnisse NIE auf die Patientin/den Patienten übertragen. Keine Jahreszahlen erschließen.
 
 PLATZHALTER-ANWEISUNGEN (Überschriften sind statisch, ersetze NUR die {PLATZHALTER}):
-- {BIOGRAPHIE}: Kindheit, Jugend, prägende Ereignisse, Beziehungen, Berufsentwicklung, Erkrankungsbeginn — chronologisch und behandlungsrelevant. Leite relevante Informationen aus dem Gesamtkontext ab, auch wenn sie nicht wortwörtlich so formuliert sind.
+- {BIOGRAPHIE}: Kindheit, Jugend, prägende Ereignisse, Beziehungen, Berufsentwicklung, frühere psychische Erkrankungen mit Zeitraum (z.B. eine Essstörung oder frühere depressive Phasen), Erkrankungsbeginn — chronologisch und behandlungsrelevant. Leite relevante Informationen aus dem Gesamtkontext ab, auch wenn sie nicht wortwörtlich so formuliert sind.
 - {SORC_MODELL}: Vollständiges S-O-R-C-Schema (siehe Format unten). Fülle ALLE Felder mit klinisch plausiblen Inhalten auf Basis der Patientendaten. Das Modell soll das Störungsbild erklären, nicht nur Zitate wiederholen.
 
 ===== FORMAT-VORLAGE (Überschriften EXAKT übernehmen, NUR {PLATZHALTER} ersetzen!) =====

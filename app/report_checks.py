@@ -52,6 +52,8 @@ ICD10_TITLES = {
     "F42.0": "Vorwiegend Zwangsgedanken oder Grübelzwang",
     "F42.1": "Vorwiegend Zwangshandlungen [Zwangsrituale]",
     "F42.2": "Zwangsgedanken und -handlungen, gemischt",
+    "F42.8": "Sonstige Zwangsstörungen",
+    "F42.9": "Zwangsstörung, nicht näher bezeichnet",
     "F43.0": "Akute Belastungsreaktion",
     "F43.1": "Posttraumatische Belastungsstörung",
     "F43.2": "Anpassungsstörungen",
@@ -102,7 +104,16 @@ def _title_overlap(official, label):
 
 # ICD-Code mit folgendem Klartext bis zum Satzende. Klartext muss gross beginnen,
 # sonst ist es Fliesstext ("F42 wurde erwogen").
-_CODE_LABEL_RE = re.compile(r"\b(F\d{2}(?:\.\d{1,2})?)[ \t]+([A-ZÄÖÜ][^\n.;]*)")
+# Doppelpunkt beendet den Klartext: "F90 ADHS: Es liegen keine ..." (Lauf 14) verglich sonst die
+# ganze Begruendung mit der offiziellen Bezeichnung.
+# Zweites Zeichen muss ein Buchstabe sein: "(F84.0 V) geführt wird ..." (Lauf 19, Akten-Notation
+# fuer Verdacht) ist keine Bezeichnung.
+_CODE_LABEL_RE = re.compile(r"\b(F\d{2}(?:\.\d{1,2})?)[ \t]+([A-ZÄÖÜ][A-Za-zäöüß-][^\n.;:]*)")
+# Gebraeuchliche Kurzbezeichnungen, die keinen Hinweis ausloesen sollen
+_ICD_ALIASES = {"F90": ("adhs", "ads", "aufmerksamkeitsdefizit"),
+                "F90.0": ("adhs", "ads", "aufmerksamkeitsdefizit"),
+                # So kodiert die Praxissoftware selbst ("Zwangsstörung {F42.9 G}")
+                "F42.9": ("zwangsstörung",)}
 
 
 def fix_icd_titles(text):
@@ -120,6 +131,9 @@ def fix_icd_titles(text):
         code, label = m.group(1).upper(), m.group(2).rstrip(" ,")
         official = ICD10_TITLES.get(code) or ICD10_TITLES.get(code[:5])
         if not official or norm_title(official) in norm_title(label):
+            continue
+        # Lauf 17: "F90.0 Aufmerksamkeitsdefizit-Hyperaktivitätsstörung" ist die gebraeuchliche Bezeichnung
+        if any(norm_title(label).startswith(a) for a in _ICD_ALIASES.get(code, ())):
             continue
         in_dd = m.start() >= dd_start
         if _title_overlap(official, label) >= 0.6:
@@ -154,6 +168,41 @@ def _suspected_only_codes(source_text):
     for code, status in _AKTE_DIAGNOSIS_MARK_RE.findall(source_text):
         seen.setdefault(code.upper(), set()).add(status)
     return {code for code, stati in seen.items() if stati == {"V"}}
+
+
+def format_diagnosis_block(source_text):
+    """Liste der in der Akte kodierten F-Diagnosen ({F33.1 G}) mit letztem Kodierdatum, fuer Pass 1
+    von Abschnitt 5. Laeufe 14-18: gemma4:26b setzte F43.2 als Nebendiagnose, obwohl die Akte
+    es nur einmal 2024 und danach nur noch F33.x kodierte - trotz Regel im Prompt."""
+    last = {}
+    entry = None
+    for line in source_text.splitlines():
+        m = _ENTRY_DATE_RE.match(line)
+        if m:
+            entry = (full_year(m.group(3)), int(m.group(2)), int(m.group(1)))
+        for code, status in _AKTE_DIAGNOSIS_MARK_RE.findall(line):
+            key = (code.upper(), status)
+            if entry and (key not in last or entry > last[key]):
+                last[key] = entry
+    if not last:
+        return ""
+    newest = max(last.values())
+    lines = []
+    for (code, status), (y, mo, d) in sorted(last.items(), key=lambda kv: kv[1], reverse=True):
+        title = ICD10_TITLES.get(code, "")
+        mark = "gesichert (G)" if status == "G" else "Verdacht (V)"
+        lines.append(f"- {code} {title} — {mark}, zuletzt kodiert am {d:02d}.{mo:02d}.{y}"
+                     + (" (jüngste Kodierung)" if (y, mo, d) == newest else ""))
+    return (
+        "IN DER AKTE KODIERTE DIAGNOSEN (automatisch gelesen, jüngste zuerst, VERBINDLICH):\n"
+        + "\n".join(lines)
+        + "\nMehrere Kodierungen einer depressiven Episode (F32/F33) ersetzen einander: nur eine davon ist "
+        "Diagnose, den Schweregrad nach dem jüngsten BDI-Wert und Befund bestimmen. F43.2 entfällt als "
+        "Diagnose, wenn danach eine depressive Episode kodiert wurde (höchstens Differenzialdiagnose). "
+        "Andere gesicherte Diagnosen (G) sind Nebendiagnose, solange die Symptomatik laut Akte weiter besteht. "
+        "Verdachtsdiagnosen (V) nur als Differenzialdiagnose. Frühere Episoden derselben Störung (z.B. "
+        "F33.2 vor F33.0) sind KEINE Differenzialdiagnose und werden nicht aufgeführt."
+    )
 
 
 def check_diagnosis_certainty(text, source_text):
@@ -199,6 +248,13 @@ def check_diagnosis_placement(text, source_text):
             hints.append((code, f"{code} steht unter Haupt-/Nebendiagnose(n), die Akte führt es aber "
                          "durchgängig nur als Verdachtsdiagnose (V) — gehört das nicht eher unter "
                          "Differenzialdiagnose(n)?"))
+    # Verdachtsdiagnose der Akte fehlt ganz (Lauf 17: Autismus-Verdacht F84.0/F84.5 nirgends
+    # in Abschnitt 5). Gleiche Gruppe (F84.x) zaehlt als genannt.
+    present = {c[:3].upper() for c in _ICD_CODE_RE.findall(text)}
+    missing = sorted(c for c in suspected if c[:3] not in present)
+    if missing:
+        hints.append((missing[0], f"Verdachtsdiagnose(n) {', '.join(missing)} aus der Akte fehlen in "
+                                  "Abschnitt 5 — als Differenzialdiagnose aufführen?"))
     return hints
 
 
@@ -227,11 +283,31 @@ def add_diagnosis_hints(text, latest_bdi=None, source_text=""):
     for c in dict.fromkeys(coded):
         if c.endswith(".x"):
             hints.append((c, f"{c} ist kein vollständiger Code, Subtyp angeben oder Diagnose streichen"))
+        elif "." not in c:
+            # Lauf 14: "F42 Zwangsstörung" ohne Subtyp; die ICD-10-GM verlangt endstellige Kodierung
+            hints.append((c, f"{c} ist nur dreistellig, Subtyp angeben oder Diagnose streichen"))
     if "F43.2" in coded and any(c.startswith(("F32", "F33")) for c in coded):
         hints.append(("F43.2", "F43.2 wird neben einer depressiven Episode (F32/F33) nicht kodiert"))
     for c in dict.fromkeys(coded):
         if c in dd_specific:
             hints.append((c, f"{c} steht zugleich als Diagnose und als Differenzialdiagnose"))
+    # Lauf 20: frühere Episoden (F33.2, F33.1) als "Differenzialdiagnose" neben F33.0
+    # Nur Codes am Anfang eines DD-Eintrags, nicht "(F33)" in einer Begruendung (Lauf 22)
+    coded_families = {c[:3] for c in coded if c.startswith(("F32", "F33"))}
+    dd_entry_codes = [m.group(1) for m in re.finditer(r"(?:^|\n|[.!?]\s+)\s*(F\d{2}\.\d)", dd_part)]
+    earlier = [c for c in dict.fromkeys(dd_entry_codes) if c[:3] in coded_families and c not in coded]
+    if earlier:
+        hints.append((earlier[0], f"{', '.join(earlier)} unter Differenzialdiagnose(n) ist eine frühere Episode "
+                                  "derselben Störung, keine Differenzialdiagnose — streichen"))
+    # Pass 2 wiederholte eine Differenzialdiagnose wörtlich (Lauf 20) - exakte Satz-Dubletten entfernen
+    if dd_part:
+        # Eintraege beginnen mit einem Code am Satzanfang ("F43.2 Anpassungsstörungen. Die Diagnose ...")
+        chunks = re.split(r"(?:(?<=[.!?])\s+|(?<=\n))(?=F\d{2}\b)", dd_part)
+        deduped = list(dict.fromkeys(c.strip() for c in chunks))
+        if len(deduped) < len(chunks):
+            head, entries = deduped[0], deduped[1:]
+            text = text[:dd_match.start()] + head + ("\n" if head.endswith(":") else " ") + " ".join(entries)
+            dd_part = text[dd_match.start():]
 
     hints += title_hints
     if source_text:
@@ -379,6 +455,15 @@ def check_family_status(section1, source_text):
     return hints
 
 
+def check_living_situation(section1):
+    """Laeufe 15/17: "Sie lebt mit ihrem Freund zusammen, hat jedoch beschlossen, nicht
+    zusammenzuziehen" - trotz Prompt-Regel zweimal in Folge."""
+    if (re.search(r"\b(?:lebt|wohnt)\b[^.]*\bzusammen\b", section1)
+            and re.search(r"\bnicht\b[^.]{0,30}\bzusammen", section1)):
+        return ["Wohnsituation widersprüchlich (lebt zusammen / nicht zusammengezogen) — prüfen"]
+    return []
+
+
 def section13_hints(text, source_text="", parse_sections=None):
     """Pruefhinweise je Abschnitt (1, 2, 3) fuer die fertige 1-3-Ausgabe.
 
@@ -394,9 +479,11 @@ def section13_hints(text, source_text="", parse_sections=None):
     if source_text:
         if parse_sections:
             hints[0] += check_family_status(parse_sections(text)[0], source_text)
+            hints[0] += check_living_situation(parse_sections(text)[0])
         hints[2] += check_medication_currency(text, source_text)
     hints[1] += check_befund_23(text)
     hints[2] += check_somatic_31(text)
+    hints[2] += check_current_therapy_33(text)
     return hints
 
 
@@ -499,13 +586,98 @@ def fix_past_planned(text, today):
                         start -= 1
                     body = body[:start] + " [Durchführung prüfen]" + body[end:]
                 else:
-                    body = body[:start] + "[Durchführung prüfen]" + body[end:]
+                    # "(geplant KW 4/2026)" -> "([Durchführung prüfen], KW 4/2026)" (Lauf 22)
+                    rest = body[end:].lstrip(" ")
+                    sep = "" if rest[:1] in (",", ")") else ", "
+                    body = body[:start] + "[Durchführung prüfen]" + sep + rest
+            elif re.search(r"\b(?:wurden?|waren?|ist|sind|wird|werden)\b", body[left + 1:start]):
+                # "Eine Reha wurde ab 19.01.2026 geplant" -> "... geplant, [Durchführung prüfen]".
+                # Ohne "geplant" fehlte dem Satz das Verb (Lauf 14: "wurde ab ..., [Durchführung prüfen]").
+                gp_end = start + len("geplant")
+                body = body[:gp_end] + ", [Durchführung prüfen]" + body[gp_end:]
             else:
                 while start > 0 and body[start - 1] in " ,":
                     start -= 1
                 body = body[:start] + ", [Durchführung prüfen]" + body[end:]
         dates = _dates_with_pos(body)
     return text[:span[0]] + body + text[span[1]:]
+
+
+# Stand einer Massnahme, wie ihn 3.3 wiedergeben darf ("geplant" behandelt fix_past_planned)
+_MEASURE_STATUS_RE = re.compile(
+    r"durchgeführt|erfolgt|abgeschlossen|beendet|stattgefunden|absolviert|abgebrochen|abgesagt|"
+    r"verschoben|laufend|\bseit\b|geplant|genehmigt|beantragt|bewilligt|Durchführung prüfen",
+    re.IGNORECASE)
+# Teilsatzgrenzen in 3.3: Semikolon, Zeilenende, Satzende nach Wort/Klammer oder Jahreszahl
+# ("... bis 08.10.2025. Reha ..."), aber nicht der Punkt in "17.09. bis"
+_ITEM_END_RE = re.compile(r";|\n|(?<=[A-Za-zäöüßÄÖÜ\)\]])\.(?=\s|$)|(?<=\d{4})\.(?=\s|$)")
+
+
+def mark_past_undocumented(text, today):
+    """3.3: Massnahme mit vergangenem Zeitpunkt, aber ohne Stand -> "[Durchführung prüfen]".
+    Lauf 14: "Reha: 19.01.2026 (5 Wochen)" stand im September 2026 ohne Stand im Bericht --
+    fix_past_planned greift nur bei "geplant". Lieber einmal zu viel pruefen lassen als
+    eine nie angetretene Reha als Vorbehandlung durchgehen lassen."""
+    span = _subsection_span(text, "3.3", r"\d+\.\s|\d+\.\d")
+    if not span:
+        return text
+    body = text[span[0]:span[1]]
+    inserts = []
+    start = 0
+    for end_m in list(_ITEM_END_RE.finditer(body)) + [None]:
+        end = end_m.start() if end_m else len(body)
+        seg = body[start:end]
+        dates = _dates_with_pos(seg)
+        if (dates and max(d[2] for d in dates) < today and not _MEASURE_STATUS_RE.search(seg)
+                and "Prüfhinweis" not in seg):
+            inserts.append(start + len(seg.rstrip()))
+        start = end_m.end() if end_m else len(body)
+    for pos in reversed(inserts):
+        body = body[:pos] + ", [Durchführung prüfen]" + body[pos:]
+    return text[:span[0]] + body + text[span[1]:]
+
+
+_CURRENT_THERAPY_RE = re.compile(
+    r"\bKZT\b|Kurzzeittherapie|Psychothera\w*[^.;\n]{0,25}\blaufend|\blaufend\w*\s+(?:ambulante\s+)?Psycho",
+    re.IGNORECASE)
+
+
+_TREATMENT_RE = re.compile(
+    r"therap|behandl|reha|kur\b|klinik|station|ambulan|aufenthalt|beratung|sprechstunde|betreuung|"
+    r"psychiat|psychosomat|vorbehandlung|diagnostik|förder", re.IGNORECASE)
+_RELATIVE_RE = re.compile(
+    r"\b(?:für|des|der|dem|den|die|ihre[mnrs]?)\s+(?:jüngeren\s+|älteren\s+)?(?:Sohn|Sohnes|Tochter|Bruder|"
+    r"Bruders|Schwester|Cousine|Cousin|Mutter|Vaters?|Partners?|Partnerin|Freundin|Angehörigen)\b(?!-)")
+
+
+def _snippet(s, n=60):
+    return s if len(s) <= n else s[:n].rsplit(" ", 1)[0] + " …"
+
+
+def check_current_therapy_33(text):
+    """3.3 darf nur Vorbehandlungen der Patientin/des Patienten nennen.
+    Lauf 14: beide Kombis fuehrten die laufende KZT auf, trotz Verbot in prompt1-1/1-2.
+    Lauf 16: "Eine frühere Essstörung ... ist dokumentiert" (keine Behandlung) und Behandlungen
+    von Sohn und Cousine."""
+    span = _subsection_span(text, "3.3", r"\d+\.\s|\d+\.\d")
+    if not span:
+        return []
+    body = text[span[0]:span[1]]
+    hints = []
+    if _CURRENT_THERAPY_RE.search(body):
+        hints.append("3.3 nennt vermutlich die laufende Psychotherapie — sie ist keine Vorbehandlung, streichen")
+    start = 0
+    for end_m in list(_ITEM_END_RE.finditer(body)) + [None]:
+        end = end_m.start() if end_m else len(body)
+        seg = body[start:end].strip()
+        start = end_m.end() if end_m else len(body)
+        if len(seg) < 12 or seg.startswith("[") or "Keine Vorbehandlung" in seg:
+            continue
+        if _RELATIVE_RE.search(seg):
+            hints.append(f"3.3: \"{_snippet(seg)}\" betrifft vermutlich Angehörige — nur eigene Behandlungen nennen")
+        elif not _TREATMENT_RE.search(seg):
+            hints.append(f"3.3: \"{_snippet(seg)}\" ist keine Behandlung — streichen oder in Abschnitt 4")
+    return hints
 
 
 # Vermerke, die das Modell in eigenen Worten schreibt, auf die erlaubten Marker bringen
@@ -556,6 +728,8 @@ _SCORE_RE = re.compile(r"(\d{1,2})\s*(?:Punkte?n?|Pkt\.?)", re.IGNORECASE)
 _NUM_DATE_RE = re.compile(r"(\d{1,2})\.\s?(\d{1,2})\.(?:\s?(\d{4}|\d{2})(?!\d))?")
 _DAY_MONTH_RE = re.compile(rf"(\d{{1,2}})\.\s*({_MONTH_ALT})\.?\s*(\d{{4}})?", re.IGNORECASE)
 _MONTH_RE = re.compile(rf"\b({_MONTH_ALT})\b\.?\s*(\d{{4}})?", re.IGNORECASE)
+_INTERPRETATION_WORD_RE = re.compile(r"episode|depressi|minimal|remitt|unauff|schwer|mittel|leicht|keine?\b",
+                                     re.IGNORECASE)
 
 
 def full_year(y):
@@ -620,10 +794,16 @@ def extract_bdi_values(text):
                 # sonst verdoppelt _bdi_line() sie oder haengt eine verwaiste ")" an.
                 interpretation = re.split(r"[,;]", segment[score.end():after_end],
                                            maxsplit=1)[0].strip(" .()")
+                # Nur eine echte Einordnung uebernehmen: "BDI 2 ungefaehr 12 Punkte. Sie habe
+                # meistens 1-2 schlechte Tage ..." lieferte sonst den Folgesatz als Einordnung
+                if not _INTERPRETATION_WORD_RE.search(interpretation):
+                    interpretation = ""
+                if len(interpretation) > 120:
+                    interpretation = interpretation[:120].rsplit(" ", 1)[0]
                 results.append({
                     "day": day, "month": month, "year": year,
                     "score": int(score.group(1)),
-                    "interpretation": interpretation[:80],
+                    "interpretation": interpretation,
                 })
 
     unique = {}
@@ -710,7 +890,10 @@ def _doses_per_drug(text, max_dist=60):
         prev_end = drug_matches[i - 1][1] if i > 0 else 0
         dose_m = _DOSE_RE.search(text[end:min(next_start, end + max_dist)])
         if not dose_m:
-            back = list(_DOSE_RE.finditer(text[max(prev_end, start - max_dist):start]))
+            # Rueckwaerts nur im eigenen Listenglied: "(zwischen 5 mg und 15 mg), Trimipramin"
+            # ordnete sonst die 15 mg dem Trimipramin zu (Lauf 14)
+            back_text = re.split(r"[,;()]", text[max(prev_end, start - max_dist):start])[-1]
+            back = list(_DOSE_RE.finditer(back_text))
             dose_m = back[-1] if back else None
         if dose_m:
             value = float(dose_m.group(1).replace(",", "."))
@@ -719,10 +902,16 @@ def _doses_per_drug(text, max_dist=60):
     return results
 
 
+# "Escitalopram ab setzen sobald möglich" (Akte 2, 30.05.2025)
+_STOP_RE = re.compile(r"ab\s?setz\w*|abgesetzt|aus\s?schleich\w*|ausgeschlichen", re.IGNORECASE)
+
+
 def extract_medication_doses(text):
     """Liest je bekanntem Wirkstoff die zuletzt dokumentierte Dosis aus Freitext-
-    Notizen, analog zu extract_bdi_values()."""
+    Notizen, analog zu extract_bdi_values(). Steht am selben Tag oder spaeter ein
+    Absetzen des Wirkstoffs in der Akte, kommt "stop" (Datum) dazu."""
     latest = {}
+    stops = {}
     entry = None
     for line in text.splitlines():
         m = _ENTRY_DATE_RE.match(line)
@@ -730,12 +919,19 @@ def extract_medication_doses(text):
             entry = (int(m.group(1)), int(m.group(2)), full_year(m.group(3)))
         if not entry:
             continue
+        day, month, year = entry
+        key = (year, month, day)
         for drug, value, unit in _doses_per_drug(line):
-            day, month, year = entry
-            key = (year, month, day)
             if drug not in latest or key >= latest[drug]["_key"]:
                 latest[drug] = {"drug": drug, "day": day, "month": month, "year": year,
                                  "value": value, "unit": unit, "_key": key}
+        for start, end, drug in _drug_name_matches(line):
+            if _STOP_RE.search(line[end:end + 40]):
+                stops[drug] = max(stops.get(drug, key), key)
+    for drug, info in latest.items():
+        if drug in stops and stops[drug] >= info["_key"]:
+            y, mo, d = stops[drug]
+            info["stop"] = {"day": d, "month": mo, "year": y}
     return {drug: {k: v for k, v in info.items() if k != "_key"} for drug, info in latest.items()}
 
 
@@ -753,13 +949,21 @@ def check_medication_currency(text, source_text):
     hints = []
     for drug, value, unit in _doses_per_drug(body):
         info = latest.get(drug)
-        if not info or unit != info["unit"] or value == info["value"]:
+        if not info or (unit == info["unit"] and value == info["value"]):
             continue
         name_m = _MED_NAME_RES[drug].search(body)
         if name_m and _STAND_RE.search(body[max(0, name_m.start() - 40):name_m.end() + 40]):
             continue
+        # Andere Einheit: nicht umrechnen, aber auf den juengeren Eintrag hinweisen
+        # (Lauf 15: "Trimipramin ca. 15 mg" vom Juni 2025, zuletzt "5 gtt" im Mai 2026)
+        what = "Dosis prüfen" if unit == info["unit"] else "Dosis und Einheit prüfen"
         hints.append(f"{drug}: Bericht nennt {value:g} {unit}, zuletzt dokumentiert in der Akte "
-                     f"sind {info['value']:g} {info['unit']} ({_bdi_when(info)}) — Dosis prüfen")
+                     f"sind {info['value']:g} {info['unit']} ({_bdi_when(info)}) — {what}")
+    # Lauf 15: "Escitalopram 5 mg" in 3.2, obwohl die Akte danach das Absetzen festhielt
+    for drug in dict.fromkeys(d for _, _, d in _drug_name_matches(body)):
+        stop = latest.get(drug, {}).get("stop")
+        if stop:
+            hints.append(f"{drug}: Absetzen in der Akte am {_bdi_when(stop)} vermerkt — prüfen, ob noch aktuell")
     return hints
 
 

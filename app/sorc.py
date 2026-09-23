@@ -6,13 +6,16 @@ Pass 1 beantwortet deshalb je Konsequenz nur "tritt ein / faellt weg" und
 "angenehm / unangenehm" (K-Zeilen, prompt4-1.txt); die Zuordnung macht der Code.
 """
 import re
+from collections import Counter
 from difflib import SequenceMatcher
 
 from app.report_checks import norm_label
 
 _K_LINE_RE = re.compile(r"^\s*[-*]?\s*K\s*:\s*(.+)$")
 _C_LINE_RE = re.compile(r"^\s*C\s*[+-]\s*/?\s*:")
-_KONSEQUENZEN_HEADER_RE = re.compile(r"^\s*KONSEQUENZEN\s*:?\s*$", re.IGNORECASE)
+# S-O-R-C-Feld mitten in einer Zeile (nach Satzende oder Semikolon): ". O: Genetik", ". C+: ..."
+_INLINE_FIELD_RE = re.compile(r"([.;]\s*)((?:O|R|C\s*[+-]\s*/?)\s*:\s)")
+_KONSEQUENZEN_HEADER_RE =re.compile(r"^\s*KONSEQUENZEN\s*:?\s*$", re.IGNORECASE)
 # Wer das als eintretende angenehme Folge beschreibt, meint meist negative Verstaerkung
 _RELIEF_RE = re.compile(r"entlast|erleichter|\bruhe\b|beruhig|vermeidung|spannungsredu", re.IGNORECASE)
 _PLEASANT_RE = re.compile(
@@ -50,6 +53,10 @@ _AVOIDANCE_RE = re.compile(
     r"^(?:(?:Vermeidung|Reduktion|Reduzierung|Verringerung|Verminderung|Ausbleiben|Wegfall|Abnahme|"
     r"Nachlassen|Abbau)\s+(?:von|der|des)|(?:Schutz|Bewahrung)\s+vor)\s+(?:ein(?:e[mnrs]?)?\s+)?(.+)$",
     re.IGNORECASE)
+# Unangenehmes, dessen "Reduktion/Vermeidung" das Modell als wegfallendes Angenehmes einträgt
+_AVERSIVE_RE = re.compile(
+    r"druck|reiz|stress|konflikt|angst|ängst|anspannung|kritik|scham|schuld|überforder|enttäusch|"
+    r"ablehnung|belastung|streit|konfrontation|unsicherheit", re.IGNORECASE)
 # Mehr als 8 K-Zeilen deuten auf eine Wiederholungsschleife hin (prompt4-1 verlangt 3-8)
 _MAX_CONSEQUENCES = 8
 
@@ -125,6 +132,12 @@ def build_consequence_lines(pass1_text):
             if not gone:
                 reinterpreted += 1
             short, gone, pleasant = avoided.group(1).strip(), True, False
+        elif (avoided and gone and pleasant and _AVERSIVE_RE.search(avoided.group(1))
+              and not short.lower().startswith("wegfall")):
+            # "Reduktion von sozialem Druck | fällt weg | angenehm" (Laeufe 15, 19, 20) meint:
+            # der Druck faellt weg -> C-/. "Wegfall von Kontakt" bleibt C+/.
+            reinterpreted += 1
+            short, gone, pleasant = avoided.group(1).strip(), True, False
         label = next(lb for lb, g, p in _C_TYPES if g == gone and p == pleasant)
         # Angenehmer Zustand unter C-/C-/ ("Funktionieren -> Wegfall von Unangenehmem
         # (Stabilitaet)", Laeufe 8-10): gemeint ist, dass er eintritt bzw. erhalten bleibt -> C+
@@ -166,6 +179,8 @@ def build_consequence_lines(pass1_text):
                      "(Unangenehmes fällt weg) eingeordnet — Zuordnung prüfen")
     if overflow:
         hints.append(f"{overflow} weitere Konsequenz(en) verworfen, nur die ersten {_MAX_CONSEQUENCES} übernommen")
+    # Gleiche Hinweise zusammenfassen (Lauf 15: sechsmal derselbe "Entlastung"-Hinweis)
+    hints = [f"{h} ({n}×)" if n > 1 else h for h, n in Counter(hints).items()]
 
     c_block = "\n".join(
         f"{label}: {'; '.join(by_type[label]) or '[Angabe fehlt]'}" for label, _, _ in _C_TYPES
@@ -184,6 +199,11 @@ def apply_consequence_lines(section_text, c_block, hints):
     """Setzt den C-Block unveraendert in den fertigen Abschnitt 4 (nach der R-Zeile),
     falls Pass 2 die Zeilen umformuliert hat, und haengt Pruefhinweise an."""
     if c_block:
+        # Pass 2 schreibt S-O-R-C manchmal als einen Absatz ("S: ... O: ... C+: ...", Lauf 16):
+        # Feldbezeichnungen erst auf eigene Zeilen holen, sonst bleiben die alten C-Zeilen stehen
+        # Verirrtes "K:" vor "Intern:" in der S-Zeile (Lauf 18: "... durch den Bruder; K: Intern: ...")
+        section_text = re.sub(r"[;,]?\s*\bK\s*:\s*(?=Intern\s*:)", "; ", section_text)
+        section_text = _INLINE_FIELD_RE.sub(lambda m: m.group(1).rstrip(" ;,") + "\n" + m.group(2), section_text)
         lines = [l for l in section_text.splitlines() if not _C_LINE_RE.match(l)]
         r_idx = [i for i, l in enumerate(lines) if re.match(r"^\s*R\s*:", l)]
         pos = r_idx[-1] + 1 if r_idx else len(lines)

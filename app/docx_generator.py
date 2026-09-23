@@ -6,7 +6,7 @@ import os
 import re
 import json
 from docx import Document
-from docx.shared import Pt, Cm, Twips
+from docx.shared import Pt
 from docx.oxml import OxmlElement
 from docx.text.paragraph import Paragraph
 from docx.enum.style import WD_STYLE_TYPE
@@ -1050,85 +1050,6 @@ def ensure_report_template(template_path):
     configure_document_styles(doc)
 
     doc.save(template_path)
-
-
-def create_comparison_docx(results, model_combinations, section_headers, parse_sections_func, enable_post_processing=True):
-    """Erstellt eine DOCX-Datei mit Vergleichstabelle.
-
-    Args:
-        results: Liste mit Ergebnis-Strings (einer pro Modellkombination)
-        model_combinations: Liste der Modellkombinationen [{"pass1": ..., "pass2": ...}, ...]
-        section_headers: Liste der Abschnitts-Ueberschriften
-        parse_sections_func: Funktion zum Parsen der Abschnitte aus dem Text
-        enable_post_processing: Ob Post-Processing (Säuberung, Validierung, Repair) durchgeführt werden soll
-
-    Returns:
-        BytesIO mit dem DOCX-Dokument
-    """
-    doc = Document()
-
-    num_combos = len(model_combinations)
-    # Tabelle: Header + Abschnittszeilen, Spalten = 1 Ueberschrift + n Kombis
-    cols = num_combos + 1
-    table = doc.add_table(rows=len(section_headers) + 1, cols=cols)
-    table.style = "Table Grid"
-
-    # Spaltenbreiten setzen (robust bei variabler Kombi-Anzahl)
-    for row in table.rows:
-        if cols > 0:
-            row.cells[0].width = Cm(4)    # Ueberschriften
-        for idx in range(1, cols):
-            row.cells[idx].width = Cm(4)  # Kombis
-
-    # Header-Zeile (erste Zeile leer in Spalte 1)
-    header_row = table.rows[0]
-    header_row.cells[0].text = ""
-    for idx, combo in enumerate(model_combinations, start=1):
-        header_row.cells[idx].text = combo.get("label") or f"{combo['pass1']} + {combo['pass2']}"
-
-    # Extrahiere Abschnitte aus jedem Ergebnis
-    parsed_results = [parse_sections_func(result) for result in results]
-
-    # Fuelle die Tabelle (Zeilen 2..n)
-    for row_idx in range(1, len(section_headers) + 1):
-        section_idx = row_idx - 1
-        row = table.rows[row_idx]
-
-        # Spalte 1: Ueberschrift
-        row.cells[0].text = section_headers[section_idx]
-
-        # Spalten 2..(n+1): Ergebnisse (eine pro Kombination)
-        for combo_idx in range(num_combos):
-            cell_text = parsed_results[combo_idx][section_idx]
-
-            # Post-Processing-Pipeline anwenden (falls aktiviert)
-            if enable_post_processing:
-                pp_result = post_process_text(
-                    cell_text,
-                    enable_repair=True,
-                    enable_validation=False
-                )
-                cell_text = pp_result["text"]
-            else:
-                # Legacy-Pfad ohne Post-Processing
-                cell_text = sanitize_sensitive_text(cell_text)
-
-            row.cells[combo_idx + 1].text = cell_text
-
-    # Formatierung: 10pt Schriftgröße, keine Abstände in Tabellenzellen
-    for row in table.rows:
-        for cell in row.cells:
-            for paragraph in cell.paragraphs:
-                paragraph.paragraph_format.space_before = Pt(0)
-                paragraph.paragraph_format.space_after = Pt(0)
-                for run in paragraph.runs:
-                    run.font.size = Pt(10)
-
-    # In BytesIO speichern
-    output = io.BytesIO()
-    doc.save(output)
-    output.seek(0)
-    return output
 
 
 def format_text_as_html(text):

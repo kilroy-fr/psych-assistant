@@ -2,7 +2,6 @@
 import os
 import re
 import io
-import base64
 import requests
 import queue
 import threading
@@ -11,7 +10,6 @@ from datetime import date
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from app.rag.query_engine import answer_question, extract_text_from_files, last_done_reason
 from app.docx_generator import (
-    create_comparison_docx,
     create_flowing_text_docx,
     sanitize_sensitive_text,
     format_text_as_html,
@@ -45,9 +43,11 @@ from app.report_checks import (
     check_diagnosis_certainty,
     replace_bdi_in_25,
     fix_past_planned,
+    mark_past_undocumented,
     normalize_markers,
     extract_bdi_values,
     format_bdi_block,
+    format_diagnosis_block,
     extract_calendar_weeks,
     format_calendar_week_block,
     append_hints,
@@ -58,6 +58,7 @@ from app.anonymization import (
     anonymize_patient,
     strip_initial_parens,
     find_person_names,
+    source_names_in_report,
     anonymize_names,
 )
 
@@ -421,6 +422,9 @@ def run_computation_task(session_id, file_contents, paste_text):
         bdi_block = format_bdi_block(bdi_values)
         debug_logger.info(f"BDI-Werte aus der Akte:\n{bdi_block or '(keine gefunden)'}")
         bdi_suffix = f"\n\n{bdi_block}" if bdi_block else ""
+        # Kodierte Diagnosen der Akte mit Datum und G/V fuer Pass 1 von Abschnitt 5 (Laeufe 14-18: F43.2)
+        diag_block = format_diagnosis_block("\n".join(source_texts))
+        diag_suffix = f"\n\n{diag_block}" if diag_block else ""
 
         # Kalenderwochen-Termine (z.B. "Reha in KW 4") als Datum fuer 3.3 und Abschnitt 6
         kw_block = format_calendar_week_block(extract_calendar_weeks("\n".join(source_texts)))
@@ -440,7 +444,7 @@ def run_computation_task(session_id, file_contents, paste_text):
              None),
             ("5", PROMPT5_PASS1, PROMPT5_PASS2,
              "Extrahiere alle diagnostisch relevanten Informationen fuer Abschnitt 5 (Diagnose nach ICD-10)."
-             + bdi_suffix,
+             + bdi_suffix + diag_suffix,
              None),
             ("6", PROMPT6_PASS1, PROMPT6_PASS2,
              "Analysiere die Patientendaten fuer Abschnitt 6 (Behandlungsplan/Prognose). "
@@ -547,6 +551,7 @@ def run_computation_task(session_id, file_contents, paste_text):
                     if key == "1-3":
                         text = replace_bdi_in_25(text, bdi_values)
                         text = fix_past_planned(text, date.today())
+                        text = mark_past_undocumented(text, date.today())
                     if key == "4":
                         if p1 in consequences:
                             text = apply_consequence_lines(text, *consequences[p1])
@@ -573,7 +578,11 @@ def run_computation_task(session_id, file_contents, paste_text):
             # Patientin/Patient selbst: deterministisch aus dem Aktenkopf
             combo_sections = [strip_initial_parens(anonymize_patient(s, patient)) for s in combo_sections]
             t0 = time.time()
-            names = find_person_names("\n\n".join(combo_sections), NAME_CHECK_MODEL)
+            report_text = "\n\n".join(combo_sections)
+            names = find_person_names(report_text, NAME_CHECK_MODEL)
+            # Sicherheitsnetz: Namen, die die Akte selbst als Namen kennzeichnet (Lauf 15:
+            # die Namenpruefung uebersah den Vornamen einer Freundin in 4.1)
+            names += [n for n in source_names_in_report("\n".join(source_texts), report_text) if n not in names]
             timing_log.append({"combo": idx + 1, "section": "Namen", "pass": "Prüfung", "model": NAME_CHECK_MODEL,
                                "duration": round(time.time() - t0, 1), "cached": False})
             if names:
@@ -599,13 +608,6 @@ def run_computation_task(session_id, file_contents, paste_text):
                 processed_sections.append(pp_result["text"])
             parsed_results.append(processed_sections)
 
-        # DOCX erstellen
-        post_processed_results = ["\n\n".join(sections) for sections in parsed_results]
-        docx_output = create_comparison_docx(
-            post_processed_results, labeled_combos(), SECTION_HEADERS, parse_sections,
-            enable_post_processing=False
-        )
-
         # HTML-formatierte Ergebnisse
         html_results = []
         for parsed_result in parsed_results:
@@ -615,11 +617,7 @@ def run_computation_task(session_id, file_contents, paste_text):
         # Modellnamen fuer Spaltenheader (inkl. Abschnitts-Override und eigener Temperatur)
         model_names = [combo_label(c) for c in MODEL_COMBINATIONS]
 
-        docx_bytes = docx_output.read()
-        docx_base64 = base64.b64encode(docx_bytes).decode('utf-8')
-
         result_data = {
-            "docx_base64": docx_base64,
             "sections": SECTION_HEADERS,
             "models": model_names,
             "results": parsed_results,

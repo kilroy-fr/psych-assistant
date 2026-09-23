@@ -44,28 +44,32 @@ Regeln beim Anheben von Versionen:
 Nach jeder Änderung an `requirements.txt` ist ein Image-Neubau nötig:
 `docker-compose up -d --build`.
 
-## Modellkombinationen (2 Kombis)
+## Modellkombination (1 Kombi)
 
-| Kombi | Pass 1 (alle Abschnitte) | Pass 2 (alle Abschnitte) |
-|-------|--------------------------|--------------------------|
+| Kombi | Pass 1 | Pass 2 |
+|-------|--------|--------|
 | 1 | gemma4:26b (Abschnitt 6: gemma4:12b) | qwen3:14b |
-| 2 | gemma4:12b | qwen3:14b |
 
-Kombi 1 rechnet Abschnitt 6 per `pass1_override` mit gemma4:12b (spart ca. 2 Min.;
-26b brachte dort kaum Mehrwert). Abschnitt 6 ist damit in beiden Spalten identisch und
-wird nur einmal gerechnet. `combo_label()` zeigt den Override in UI und DOCX an.
+Abschnitt 6 läuft per `pass1_override` mit gemma4:12b. Im Vergleich (Akten 1 und 2,
+September 2026) war 26b dort nicht klar besser, brauchte aber 80–110 s statt ca. 20 s.
+`combo_label()` zeigt den Override in der UI an.
 
-Jede Kombi rechnet **alle** Abschnitte mit ihrem eigenen Pass-1- und Pass-2-Modell. Die
-Ergebnisse stehen in der Vergleichstabelle nebeneinander, pro Abschnitt kann eine Spalte
-gewählt werden. Beide Kombis nutzen dasselbe Pass-2-Modell, damit Unterschiede auf Pass 1
-zurückgehen. Die Modelle stehen nur noch in `MODEL_COMBINATIONS` (`app/model_config.py`); die
-Fortschrittsanzeige in `index.html` wird daraus erzeugt.
+Bis September 2026 gab es eine zweite Kombi (gemma4:12b für alle Abschnitte + qwen3:14b)
+als schnelle Vergleichsspalte. In den Vergleichsläufen mit zwei Akten war sie durchgehend
+schlechter und wurde entfernt: leere Abschnitte 2.4/3.1/3.2 trotz dokumentierter Medikation,
+"verheiratet (Ehemann verstorben)" aus der Lebensgeschichte einer Freundin, "über zwei
+Jahrzehnte" gewalttätige Beziehung (tatsächlich ca. 8 Jahre), F33.4 bei jüngstem BDI 22,
+"F50.x Essstörung" als Nebendiagnose, Behandlungen von Sohn und Cousine in 3.3.
+
+`MODEL_COMBINATIONS` (`app/model_config.py`) bleibt eine Liste; UI und Vergleichstabelle
+kommen mit einer oder mehreren Spalten zurecht. Eine weitere Kombi zum Vergleich
+einzutragen genügt, identische Läufe werden geteilt (siehe Ausführungsreihenfolge).
 
 `gemma4:26b` ist das Hauptmodell für Pass 1. Es passt auf der 16-GB-GPU nicht vollständig
 in den VRAM, gemessen ca. 1:45 Min. pro Abschnitt (7 Min. für Pass 1 gesamt). Qualitativ
 deutlich besser als 12b bei Befund, Vorbehandlungen und Diagnose.
 
-`gemma4:12b` ist die schnelle Vergleichsspalte (ca. 15–30 s pro Abschnitt).
+`gemma4:12b` rechnet nur noch Pass 1 für Abschnitt 6 (ca. 15–30 s).
 
 `qwen3:14b` für Pass 2 und Namenprüfung: respektiert `think: False`, maximal 40.960
 Tokens Kontext, T=0.1.
@@ -83,7 +87,8 @@ Verlauf der Modellwahl (September 2026, Vergleichsläufe mit derselben Akte):
   Schlussfolgern nicht — trotz eindeutiger Prompts. Die SORC-Konsequenzen waren falsch
   zugeordnet, Diagnoseregeln wurden ignoriert (F33.0 bei BDI 7, F50.x), und der
   Datumsvergleich für Vorbehandlungen landete als Anweisungstext im Bericht. Deshalb ist
-  gemma4:26b jetzt Hauptmodell, 12b bleibt als schnelle Vergleichsspalte.
+  gemma4:26b jetzt Hauptmodell. 12b lief danach noch als eigene Vergleichsspalte (Kombi 2) und
+  wurde nach den Läufen mit zwei Akten entfernt (siehe oben).
 - `qwen3:14b` als Pass-1-Modell: ebenso langsam wie gemma4:26b (7:40 Min., vermutlich
   weil 40K Kontext plus Modell nicht ganz in die GPU passen), sehr ausführlich (Abschnitt
   1-3 lief ins Ausgabelimit von 4096 Tokens, Abschnitt 3 fehlte komplett) und inhaltlich
@@ -100,7 +105,7 @@ Sicherheitsnetz, unabhängig vom Modell, und loggt das in `debug_results.log`.
 
 - **`MODEL_COMBINATIONS`** (`app/model_config.py`): Pass-1- und Pass-2-Modell je Kombi, optional
   `pass2_temperature` und `pass1_override` (Pass-1-Modell je Abschnitt, z.B.
-  `{"6": "gemma4:12b"}`). Das ist die einzige Stelle, UI und DOCX lesen daraus.
+  `{"6": "gemma4:12b"}`). Das ist die einzige Stelle, die UI liest daraus.
 - **`NAME_CHECK_MODEL`** (`app/model_config.py`): Modell der Namenprüfung.
 
 `query_engine.cap_num_ctx()` fragt die maximale Kontextlänge eines Modells bei Ollama ab
@@ -141,6 +146,22 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
   `ICD10_TITLES` enthält seit Lauf 13 auch F84.0/F84.1/F84.5/F84.9 (Autismus-Spektrum
   kommt in dieser Praxis oft vor) — vorher fiel ausgerechnet der diagnostisch zentralste
   Code dieses Falltyps durchs Raster.
+  Seit den Läufen mit zwei Akten (September 2026) außerdem: dreistellige Codes unter
+  Haupt-/Nebendiagnose ("F42 Zwangsstörung") bekommen einen Hinweis; der Klartext endet am
+  Doppelpunkt ("F90 ADHS: Es liegen keine …" verglich sonst die ganze Begründung);
+  `_ICD_ALIASES` lässt übliche Kurzbezeichnungen durch ("ADHS", "Aufmerksamkeitsdefizit-…",
+  "F42.9 Zwangsstörung" wie die Praxissoftware selbst kodiert); der Klartext muss mit zwei
+  Buchstaben beginnen ("(F84.0 V) geführt wird …" ist keine Bezeichnung).
+  `format_diagnosis_block()` gibt Pass 1 von Abschnitt 5 alle in der Akte kodierten
+  F-Diagnosen mit letztem Kodierdatum und G/V als verbindliche Liste, analog zur BDI-Liste.
+  gemma4:26b setzte bei Akte 1 dreimal in Folge F43.2 als Nebendiagnose, obwohl die Akte es
+  nur einmal 2024 und danach nur noch F33.x kodierte — die Regel im Prompt reichte nicht.
+  Die Liste sagt ausdrücklich, dass andere gesicherte Diagnosen (F42.9) Nebendiagnose
+  bleiben, solange die Symptomatik besteht, auch wenn sie länger nicht neu kodiert wurden.
+  Nebenwirkung in Lauf 20: frühere Episoden (F33.2, F33.1) standen als
+  Differenzialdiagnosen, F43.2 doppelt. Die Liste verbietet das jetzt; zusätzlich gibt es
+  einen Hinweis für frühere Episoden derselben Störung unter Differenzialdiagnose(n), und
+  wörtlich wiederholte DD-Einträge werden entfernt.
   `check_diagnosis_placement()` (nur Abschnitt 5) und `check_diagnosis_certainty()`
   (Abschnitt 4 und 5) vergleichen gegen `{F84.0 V}`/`{F33.1 G}` — die Akte markiert jeden
   Code in der Akutdiagnosen-Liste selbst schon mit Verdacht (V) oder gesichert (G).
@@ -152,6 +173,8 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
   statt Differenzialdiagnose(n) — beides widersprach der Akte, die Autismus/Asperger
   nirgends als "G" führt. Eine Verneinung im kurzen Vorlauf ("nicht gesichert") schließt
   den Hinweis aus, sonst hätte er auch korrekt gehedgte Sätze angemeckert.
+  Fehlt eine Verdachtsdiagnose der Akte in Abschnitt 5 ganz (auch nicht dieselbe Gruppe,
+  z.B. F84.x), gibt es ebenfalls einen Hinweis (Lauf 17: Autismus-Verdacht fehlte).
 - **Abschnitt 1-3:**
   - `missing_subsections_13()` prüft nach Pass 2, ob 1, 2.1–2.5, 3 und 3.1–3.3 vorhanden
     sind. Fehlt etwas, wird Pass 2 bis zu zweimal wiederholt (T +0.1 je Versuch) und die
@@ -178,6 +201,23 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
   - `fix_past_planned()` ersetzt in 3.3 "geplant" durch "[Durchführung prüfen]", wenn der
     zugehörige Zeitpunkt vor heute liegt. Jedes "geplant" wird dem nächsten Datum im selben
     Teilsatz zugeordnet. Pass 2 hatte "ab 19.01.2026, geplant" im September 2026 stehen lassen.
+    Steht ein Hilfsverb davor ("Eine Reha wurde ab … geplant"), bleibt "geplant" stehen und
+    der Marker kommt dahinter — sonst fehlte dem Satz das Verb.
+  - `mark_past_undocumented()` hängt in 3.3 "[Durchführung prüfen]" an jede Maßnahme mit
+    vergangenem Datum, bei der kein Stand steht ("durchgeführt", "beantragt", "geplant" …).
+    Lauf 14: "Reha: 19.01.2026 (5 Wochen)" ohne Stand, `fix_past_planned()` greift nur bei
+    "geplant". Lieber einmal zu viel prüfen als eine nie angetretene Reha als Vorbehandlung.
+  - `check_current_therapy_33()`: Prüfhinweise, wenn 3.3 die laufende Therapie nennt ("KZT",
+    "laufend"), einen Eintrag ohne Behandlung ("Eine Essstörung trat 2007/2008 auf") oder
+    Behandlungen von Angehörigen ("Klinikbehandlung für den Sohn"). `prompt1-1.txt` sagt
+    außerdem ausdrücklich, dass alles in der Akte Dokumentierte (Sitzungen, Anträge,
+    Medikation, AU, Labor) zur laufenden Behandlung dieser Praxis gehört.
+  - `check_living_situation()`: Prüfhinweis bei "lebt … zusammen" und "nicht …
+    zusammen(gezogen)" in Abschnitt 1 (Akte 2, zweimal trotz Prompt-Regel).
+  - `prompt1-1.txt` verlangt für Bewusstsein, Orientierung, Wahrnehmung und Ich-Störungen den
+    Normalbefund, wenn nichts Auffälliges dokumentiert ist, und definiert Ich-Störungen
+    (Selbstunsicherheit ist keine). Vorher stand dort viermal "[Angabe fehlt]" bzw.
+    "Ich-Störungen: Selbstunsicherheit". Bei bloßem Geburtsjahr: "51 Jahre [Alter prüfen]".
   - `replace_bdi_in_25()` ersetzt alle BDI-Angaben in 2.5 durch die Liste aus der Akte
     (`_bdi_line()`, dieselbe Form wie in der Liste für Pass 1). Die Modelle hatten "Punkten"
     zu "Punkte" gemacht und "[Einordnung prüfen]" weggelassen. Andere Testverfahren bleiben.
@@ -198,9 +238,14 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
     gesucht, sonst rückwärts bis zur vorherigen) — eine reine Zeichen-Abstands-Suche hätte
     bei "Venlafaxin … 150 mg sowie Escitalopram … 5 mg" der zweiten Zeile fälschlich die
     150 mg zugeordnet, weil die Zwischenphrase "in einer Dosierung von" den Abstand zur
-    eigenen Dosis vergrößert. Vergleicht nur bei gleicher Einheit (Trimipramin steht in
-    der Akte mal in mg, mal in Tropfen/gtt) — bei Einheitenwechsel bleibt der Check bewusst
-    still, statt eine Umrechnung zu raten.
+    eigenen Dosis vergrößert. Rückwärts wird nur im eigenen Listenglied gesucht (bis zum
+    letzten Komma/Semikolon/Klammer): "(zwischen 5 mg und 15 mg), Trimipramin" ordnete sonst
+    die 15 mg dem Trimipramin zu. Bei anderer Einheit als im jüngsten Akteneintrag
+    (Trimipramin mal mg, mal Tropfen/gtt) wird nicht umgerechnet, aber mit "Dosis und
+    Einheit prüfen" auf den jüngeren Eintrag hingewiesen (Lauf 15: "ca. 15 mg" vom Juni 2025,
+    zuletzt "5 gtt" im Mai 2026). Steht am Tag der letzten Dosis oder danach ein Absetzen
+    in der Akte ("Escitalopram ab setzen sobald möglich"), gibt es einen Hinweis, sobald
+    3.2 den Wirkstoff nennt.
 - **Familienstand und Lebensereignisse** werden nicht mehr erschlossen (`prompt1-1.txt`,
   `prompt4-1.txt`). gemma4:26b schrieb "verwitwet", weil in der Akte vom verstorbenen
   Ehemann einer anderen Person die Rede war. Fehlt die Angabe, steht "[Angabe fehlt]".
@@ -213,7 +258,10 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
   kurzfristig …, langfristig …"), weil die Angaben im Nominativ kommen. Ein vom Modell
   mitgeliefertes "kurzfristig(e)"/"langfristig(e)" wird entfernt. Dubletten werden still
   verworfen, auch mit Tippfehler ("Vermeidung"/"Vermehmung", unscharfer Vergleich ab 8
-  Zeichen). Prüfhinweise gibt es:
+  Zeichen). Schreibt Pass 2 das Schema als einen Absatz ("S: … O: … C+: …"), holt
+  `apply_consequence_lines()` die Feldbezeichnungen vorher auf eigene Zeilen, sonst stand der
+  C-Block doppelt da (Lauf 16); ein verirrtes "K:" vor "Intern:" wird entfernt. Gleiche
+  Prüfhinweise werden zusammengefasst ("… (6×)"). Prüfhinweise gibt es:
   - bei fehlenden oder unvollständigen K-Zeilen;
   - bei nach Entlastung klingenden Folgen ("Ruhe", "Entlastung"): unter C+, C- und C+/
     gehört das eher zu C-/, unter C-/ ist es die Entlastung selbst statt des wegfallenden
@@ -225,7 +273,10 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
   - wenn S-intern die Überlebensregel aus O wiederholt (`sorc_structure_hints()`).
 
   "Vermeidung/Reduktion/Ausbleiben von X" als eintretende angenehme Folge wird automatisch
-  zu "X fällt weg, unangenehm" (C-/) umgedeutet, mit einem Sammelhinweis. Adjektive am
+  zu "X fällt weg, unangenehm" (C-/) umgedeutet, mit einem Sammelhinweis. Ebenso
+  "Reduktion/Vermeidung von X | fällt weg | angenehm", wenn X etwas Unangenehmes ist
+  (Druck, Reize, Konflikt … — `_AVERSIVE_RE`; Läufe 15, 19, 20 landeten sonst unter C+/).
+  "Wegfall von Kontakt | fällt weg | angenehm" bleibt C+/. Adjektive am
   Anfang werden kleingeschrieben ("kurzfristig erhöhte Belastung"). Mehr als 8 K-Zeilen
   werden abgeschnitten (`_MAX_CONSEQUENCES`), das deutet auf eine Wiederholungsschleife hin.
 
@@ -245,6 +296,10 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
   beide erfasst statt nur des ersten. Klammern aus der Akte selbst ("32 Punkte (schwere
   depressive Episode)") werden beim Extrahieren mit entfernt — sonst verdoppelt
   `_bdi_line()` sie oder hängt bei "(BDI 22 Punkte)" eine verwaiste schließende Klammer an.
+  Als Einordnung wird nur Text übernommen, der nach einer Einordnung klingt (Episode,
+  minimal, leicht …): "BDI 2 ungefähr 12 Punkte. Sie habe meistens 1-2 schlechte Tage …"
+  lieferte sonst den Folgesatz, und der Eintrag mit der echten Einordnung am selben Tag
+  wurde als Dublette verworfen (Akte 2). Längere Einordnungen werden am Wortende gekürzt.
 - `find_person_names()` lässt `NAME_CHECK_MODEL` alle identifizierenden Eigennamen im
   fertigen Bericht auflisten: Personen, Firmen/Arbeitgeber, Einrichtungen, Orte. Der Code
   verwirft Platzhalter ("Frau X.", "F.") und behält nur Namen, die wirklich als Wort im
@@ -270,6 +325,16 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
   die im Text nur mit Artikel vorkommen ("im Dorfladen"), gelten als Gattungsbegriff und
   werden verworfen. Das Modell meldete "Dorfladen" trotz Ausnahme im Prompt. Rolle +
   Initial ("Partner Y.", "Herr Z.") gilt als Platzhalter, Vorname + Initial ("Anna B.") nicht.
+  Sicherheitsnetz unabhängig vom Modell: `source_names_in_report()` sucht Namen, die die
+  Akte selbst als Namen kennzeichnet — hinter einer Rolle ("Freundin Anna", "Sohn Paul")
+  oder als einzelnes Wort in Klammern ("Kollegin (Lena)") — und gibt die im Bericht
+  gefundenen zusätzlich an `anonymize_names()`. Lauf 15: die Namenprüfung übersah einen
+  Vornamen in 4.1. Gattungsbegriffe fallen raus, wenn sie in der Akte irgendwo mit Artikel
+  stehen ("in der Verwaltung") oder Kürzel sind ("BWL"); Aufzählungen in Klammern
+  ("(Druck und Stress)") zählen nicht. Ortsnamen (`_PLACE_RE`) nur hinter einer Präposition
+  ("in", "nach", "Uni" …) und nur mit typischer Endung (-heim, -burg, -berg, -felden …),
+  "Bad …" oder aus einer kleinen Großstadtliste — ohne diese Einschränkung wären es zu viele
+  Substantive ("in Ruhe"). Lauf 21: "BWL-Studium in Bad Kissingen" in Abschnitt 1.
 - **Ausgabelimit in Pass 1:** `query_engine.last_done_reason()` liefert den `done_reason`
   des letzten Aufrufs. Ist er "length", rechnet `run_pass1()` einmal mit
   `repeat_penalty=1.15` neu. gemma4:12b schrieb in Abschnitt 4 sonst K-Zeilen bis 4096 Tokens.
@@ -277,7 +342,7 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
 ### Frontend: Vergleichstabelle
 
 `renderComparisonTable()` (`main.js`) zeigt jede Kombi in jeder Zeile als eigene Spalte,
-auch bei identischem Text (Abschnitt 6 per `pass1_override`) — wie die DOCX-Tabelle. Bis
+auch bei identischem Text (Abschnitt 6 per `pass1_override`). Bis
 September 2026 fasste eine feste Liste `[0, 1, 2, 4]` aus der Zeit vor dem 2-Pass-System
 Zeilen zu einer Zelle zusammen; Abschnitte 1–3 und 5 von Kombi 2 waren im Browser nie zu sehen.
 
@@ -289,9 +354,11 @@ Datei aus dem Cache nimmt.
 "Frau K." — die Regel hatte durch ein `\b` nach dem Punkt nie gegriffen, im Bericht stand
 "Frau X. D.".
 
-`create_comparison_docx()` (`docx_generator.py`) hatte bis Version 1.0 eine zusätzliche,
-immer leere Spalte am Tabellenende (`cols = num_combos + 2`, Kommentar "1 Leer"). Die
-Word-Tabelle hat jetzt genau `num_combos + 1` Spalten.
+Die Vergleichstabelle als Word-Datei (`vergleich.docx`, `create_comparison_docx()`) wurde
+im September 2026 entfernt, als nur noch eine Kombi übrig blieb. Word-Ausgabe ist nur noch
+der Fließtext-Bericht (`/create-text` → `create_flowing_text_docx()`, `bericht.docx`); der
+läuft über `post_process_text()` bzw. `sanitize_sensitive_text()` und anonymisiert damit
+weiterhin selbst.
 
 ### Versionsnummer
 
@@ -311,6 +378,9 @@ nicht über Git verteilt.
 - `debug_results.log` enthält nur Metadaten (Längen, Modell, `done_reason`, Anzahl Hinweise)
   und die BDI-Liste. Aktenvorschau, Pass-1-Vorschau, SORC-Block und gefundene Namen werden
   nur mit `LOG_PATIENT_CONTENT=1` (`docker-compose.yml`) geschrieben — nur zur Fehlersuche.
+- `testakten/` (anonymisierte Originalakten für Vergleichsläufe) steht in `.gitignore` und
+  `.dockerignore`. Testakten nie unter `data/` ablegen (wird ins Image kopiert, `data/guidelines/`
+  landet im RAG-Index).
 - `.dockerignore` hält `*.log` aus dem Image. `COPY data ./data` hatte das Log mit Echtdaten
   in jedes Image kopiert.
 
@@ -324,7 +394,7 @@ Die Läufe sind nach Modell gruppiert, damit möglichst selten ein Modell nachge
 
 **Phase 1** — alle Pass-1-Läufe (Abschnitte 1-3, 4, 5, 6). Pass-1-Modelle, die auch als
 Pass-2-Modell vorkommen, laufen zuletzt und bleiben dann geladen. Aktuell: gemma4:26b
-(Abschnitte 1-3, 4, 5), dann gemma4:12b (alle vier), dann Wechsel zu qwen3:14b für alles
+(Abschnitte 1-3, 4, 5), dann gemma4:12b (Abschnitt 6), dann Wechsel zu qwen3:14b für alles
 Weitere.
 
 **Phase 2** — alle Pass-2-Läufe, das noch geladene Modell zuerst.
@@ -336,9 +406,9 @@ betroffenen Kombis zugeordnet (Schlüssel `(pass1, pass2, temperatur, abschnitt)
 `pass1` das Modell nach `pass1_model_for()` ist, also inkl. Override).
 
 Ausführungsreihenfolge und Ergebnisreihenfolge sind bewusst entkoppelt: Ergebnisse werden
-per Kombi-Index abgelegt, DOCX-Spalten und Vergleichstabelle folgen der Reihenfolge in
-`MODEL_COMBINATIONS`. In der Fortschrittsanzeige kann deshalb Kombi 2 vor Kombi 1
-aufleuchten. Die Zeitentabelle sortiert in `renderTimingTable()` selbst nach Kombi.
+per Kombi-Index abgelegt, die Spalten der Vergleichstabelle folgen der Reihenfolge in
+`MODEL_COMBINATIONS`. Bei mehreren Kombis kann in der Fortschrittsanzeige deshalb Kombi 2
+vor Kombi 1 aufleuchten. Die Zeitentabelle sortiert in `renderTimingTable()` selbst nach Kombi.
 
 ### Kontextfenster-Logik (`query_engine.py`)
 

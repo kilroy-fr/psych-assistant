@@ -13,10 +13,11 @@ import os
 # "pass1_override": optionales Pass-1-Modell je Abschnitt, z.B. {"6": "gemma4:12b"}
 MODEL_COMBINATIONS = [
     # Abschnitt 6 mit 12b: spart ca. 2 Min., gemma4:26b bringt dort kaum Mehrwert.
-    # Abschnitt 6 ist damit in beiden Spalten gleich (wird nur einmal gerechnet).
     {"pass1": "gemma4:26b", "pass2": "qwen3:14b", "pass1_override": {"6": "gemma4:12b"}},
-    {"pass1": "gemma4:12b", "pass2": "qwen3:14b"},  # schnelle Vergleichsspalte
 ]
+# Kombi 2 (gemma4:12b fuer alle Abschnitte) wurde im September 2026 nach Vergleichslaeufen mit
+# zwei Akten entfernt: leere Abschnitte 3.1/3.2/2.4, falscher Familienstand, F33.4 bei BDI 22,
+# F50.x als Nebendiagnose. Abschnitt 6 mit 26b statt 12b brachte keinen klaren Mehrwert (+80 s).
 
 
 def pass1_model_for(combo, section_key):

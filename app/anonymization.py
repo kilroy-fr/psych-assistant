@@ -67,6 +67,63 @@ def find_person_names(text, model_name):
     return found
 
 
+# Namen, die die Akte selbst als Namen kennzeichnet: hinter einer Rolle ("Freundin Anna",
+# "Sohn Paul") oder als einzelnes Wort in Klammern ("Kollegin (Lena)").
+# Lauf 15: Das Modell der Namenpruefung uebersah "Anna" in 4.1 -- Sicherheitsnetz,
+# das nicht vom Modell abhaengt.
+_ROLE_NAME_RE = re.compile(
+    r"\b(?:Freundin|Freund|Sohn|Sohnes|Tochter|Bruder|Bruders|Schwester|Kollegin|Kollege|Ehemann|"
+    r"Partner|Partnerin|Cousine|Cousin|Onkel|Tante|Nichte|Neffe|Chef|Chefin|Enkel|Enkelin|"
+    r"Schwager|Schwägerin|Integrationshelferin|Betroffene)\s+([A-ZÄÖÜ][a-zäöüß]{2,})\b")
+# Nur ein einzelnes Wort: Aufzaehlungen sind meist Stichworte ("(Messer, Gewalt)", "(Druck und Stress)")
+_PAREN_NAMES_RE = re.compile(r"\(\s*([A-ZÄÖÜ][A-Za-zäöüß]{2,})\s*\)")
+_ROLE_WORDS = {"Mutter", "Vater", "Freund", "Freundin", "Sohn", "Tochter", "Bruder", "Schwester",
+               "Partner", "Partnerin", "Mann", "Frau", "Oma", "Opa", "Kind", "Kinder", "Eltern"}
+
+
+def _looks_like_noun(word, source_text):
+    """Gattungsbegriff statt Name: steht in der Akte irgendwo mit Artikel ("in der Verwaltung")
+    oder ist ein Kuerzel ("BWL")."""
+    if sum(c.islower() for c in word) < 2 or word in _ROLE_WORDS:
+        return True
+    return bool(re.search(
+        rf"\b(?:der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines|im|am|vom|zum|zur|ins|beim)\s+"
+        rf"{re.escape(word)}\b", source_text, re.IGNORECASE))
+
+
+# Ortsnamen hinter einer Praeposition, erkannt an typischen Endungen, "Bad …" oder einer kleinen
+# Liste von Grossstaedten. Lauf 21: "BWL-Studium in Bad Kissingen" in Abschnitt 1, die
+# Namenpruefung uebersah den Ort. Ohne Endung/Liste waeren es zu viele Substantive ("in Ruhe").
+_PLACE_RE = re.compile(
+    r"\b(?:in|nach|aus|bei|von|Uni|Universität)\s+("
+    r"(?:Bad|Sankt|St\.)\s+[A-ZÄÖÜ][a-zäöüß]+"
+    r"|[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]+)?(?:heim|burg|berg|dorf|hausen|felden|feld|stadt|ingen|"
+    r"bach|furt|brücken|hofen|weiler|kirchen|münster)"
+    r"|Berlin|München|Hamburg|Köln|Stuttgart|Ulm|Heilbronn|Ansbach|Erlangen|Nürnberg|Würzburg|Frankfurt|"
+    r"Leipzig|Dresden|Hannover|Bremen)\b")
+
+
+def source_names_in_report(source_text, report_text):
+    """Namen aus der Akte (siehe _ROLE_NAME_RE/_PAREN_NAMES_RE/_PLACE_RE), die im Bericht als
+    ganzes Wort stehen. Wie bei find_person_names: Einzelwoerter, die im Bericht nur mit Artikel
+    vorkommen, gelten als Gattungsbegriff."""
+    candidates = [m.group(1) for m in _ROLE_NAME_RE.finditer(source_text)]
+    for m in _PAREN_NAMES_RE.finditer(source_text):
+        candidates.append(m.group(1))
+    candidates += [m.group(1) for m in _PLACE_RE.finditer(source_text) if len(m.group(1)) > 5]
+    candidates = [c for c in candidates if not _looks_like_noun(c, source_text)]
+    found = []
+    for name in dict.fromkeys(candidates):
+        # "MAria" (Tippfehler in der Akte) auch als "Maria" suchen
+        variants = {name, name[0] + name[1:].lower()}
+        for v in variants:
+            hits = list(re.finditer(rf"(?<!\w){re.escape(v)}(?!\w)", report_text))
+            if hits and not all(_ARTICLE_BEFORE_RE.search(report_text[max(0, h.start() - 10):h.start()])
+                                for h in hits) and v not in found:
+                found.append(v)
+    return found
+
+
 # --- Anonymisierung ----------------------------------------------------------
 
 # Aktenkopf aus der Praxissoftware: "Nachname,  Vorname geb.  19.09.1975"

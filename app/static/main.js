@@ -404,13 +404,6 @@ function handleComputationComplete(data) {
   localStorage.removeItem('pendingSessionId');
   localStorage.removeItem('pendingSessionStart');
 
-  // DOCX Download-Link erstellen
-  const docxBytes = Uint8Array.from(atob(data.docx_base64), c => c.charCodeAt(0));
-  const blob = new Blob([docxBytes], {type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-  const url = window.URL.createObjectURL(blob);
-  const downloadLink = document.getElementById("download-link");
-  downloadLink.href = url;
-
   // Vergleichstabelle rendern
   renderComparisonTable(data);
 
