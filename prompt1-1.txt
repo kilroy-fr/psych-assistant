@@ -4,20 +4,21 @@ AUFGABE: Analysiere die Patientendaten und beschreibe den Patienten hinsichtlich
 
 KRITISCH — DATENNUTZUNG:
 Die vollständigen Patientendaten liegen dir als Kontext vor. Nutze ALLE verfügbaren Informationen vollständig.
-Direkte Angaben aus den Daten bevorzugen; plausible klinische Schlussfolgerungen und Ableitungen aus dem Gesamtbild sind ausdrücklich erwünscht.
-Demografische Angaben (Alter, Beruf, Familienstand) aus dem Gesamtkontext ableiten, auch wenn nicht als eigenständiger Eintrag genannt.
-"[Angabe fehlt]" NUR als absolutes letztes Mittel — wenn nach gründlicher Prüfung wirklich keinerlei Information vorliegt oder ableitbar ist.
+Direkte Angaben aus den Daten bevorzugen; bei Symptomatik und Befund sind plausible klinische Schlussfolgerungen aus dem Gesamtbild erwünscht.
+FAKTEN ZUR PERSON (Familienstand, Kinder, Wohnsituation, Beruf, Todesfälle, Trennungen) NIE ableiten oder erschließen — nur übernehmen, was ausdrücklich über die Patientin/den Patienten selbst dokumentiert ist.
+Die Notizen berichten auch über andere Personen (Freundinnen, Geschwister, Kinder, Kollegen). Deren Lebensumstände (z.B. "ihr Ehemann ist verstorben", "sie ist geschieden") NIE auf die Patientin/den Patienten übertragen. Ist unklar, auf wen sich eine Aussage bezieht, die Angabe weglassen.
+Fehlt eine Angabe zur Person, "[Angabe fehlt]" schreiben — das ist hier ausdrücklich richtig und wird in der Praxis ergänzt.
 
 WICHTIGE REGELN:
 - Reiner Fließtext, kein Markdown, keine Listenpunkte.
 - Personen anonymisieren als "Frau X." / "Herr X.", Orte als "F.".
 - Wörtliche Zitate der Patientin/des Patienten in Anführungszeichen.
 
-BESCHREIBE FOLGENDES ausführlich im Fließtext (alle verfügbaren Informationen einarbeiten, Inferenzen aus dem Gesamtkontext ausdrücklich erwünscht):
+BESCHREIBE FOLGENDES ausführlich im Fließtext (alle verfügbaren Informationen einarbeiten):
 
-Zur Person: Welche demografischen Angaben lassen sich aus den Daten erschließen? Alter, Familienstand, Beruf, Ausbildungsweg — auch wenn nur indirekt oder beiläufig erwähnt.
+Zur Person: Alter, Familienstand, Kinder, aktuelle Wohnsituation (jüngste Angabe in den Daten), konkrete berufliche Tätigkeit, Ausbildungsweg — NUR soweit ausdrücklich über die Patientin/den Patienten dokumentiert, sonst "[Angabe fehlt]". Den Familienstand nur mit dem dokumentierten Wort angeben (z.B. "geschieden", "getrennt lebend") und keine Jahreszahl ergänzen. Steht ein Geburtsdatum in den Daten, das Alter EXAKT aus Geburtsdatum und dem unten genannten heutigen Datum berechnen (Geburtstag im laufenden Jahr schon erreicht oder nicht?).
 
-Zur Symptomatik: Wie beschreibt die Patientin/der Patient ihr/sein Erleben? Welche Symptome werden geschildert, mit welchem Schweregrad und seit wann? Wörtliche Zitate der Patientin/des Patienten einbeziehen.
+Zur Symptomatik: Wie beschreibt die Patientin/der Patient ihr/sein Erleben? Welche Symptome werden geschildert, mit welchem Schweregrad und seit wann? Beginn der aktuellen Erkrankung möglichst mit Datum sowie das auslösende Ereignis nennen. Wörtliche Zitate der Patientin/des Patienten einbeziehen.
 
 Zum psychischen Befund: Wie präsentiert sich die Patientin/der Patient in der Sitzung? Kontaktaufnahme, Erscheinungsbild, Interaktionsverhalten. Psychopathologischer Befund: Bewusstsein, Orientierung, Kognition, Denken formal und inhaltlich, Ängste, Wahrnehmung, Ich-Störungen, Affekt, Antrieb, zirkadiane Besonderheiten, Suizidalität.
 
@@ -26,3 +27,10 @@ Zum Krankheitsverständnis: Wie erklärt die Patientin/der Patient ihre/seine Er
 Zu diagnostischen Tests: Welche psychodiagnostischen Testverfahren wurden durchgeführt? Datum, Testname, Werte, Interpretation.
 
 Zur somatischen Situation: Körperliche Erkrankungen und Befunde. Aktuelle Medikation mit Dosierung. Frühere und aktuelle psychotherapeutische, psychosomatische oder psychiatrische Behandlungen.
+- Körperliche Erkrankungen NUR körperlich. Psychische Vorerkrankungen (z.B. Essstörung) und belastende Erfahrungen (z.B. Gewalt) gehören NICHT zu den körperlichen Erkrankungen.
+- Behandlungen und Maßnahmen: NUR solche der Patientin/des Patienten selbst, KEINE Behandlungen von Angehörigen. Die laufende Psychotherapie, für die der Bericht geschrieben wird, nicht auflisten.
+- Jede frühere oder geplante Behandlung bzw. Maßnahme (z.B. Psychotherapie, Klinik, Reha, Kur) mit Art, Zeitraum und dem Stand, wie er in den Daten steht (z.B. "beantragt", "genehmigt", "Termin vereinbart", "durchgeführt", "Stand nicht dokumentiert"). NICHT selbst einordnen oder bewerten — nur wiedergeben, was dokumentiert ist.
+- Steht in der Frage eine Liste "TERMINE MIT KALENDERWOCHE", für diese Maßnahmen das dort umgerechnete Datum als Zeitraum verwenden.
+- Zeitraum sonst GENAU so, wie er in den Daten steht. Steht dort kein Jahr (z.B. nur "im März" oder "ab 15.04."), KEIN Jahr ergänzen oder erschließen, sondern "Jahr nicht angegeben" dazuschreiben.
+- Medikation gehört NUR zur aktuellen Medikation, NICHT zu den Behandlungen — auch wenn sie von einem Psychiater oder Hausarzt verordnet wurde. Als Behandlung zählt nur die Behandlung selbst (z.B. "fachärztlich-psychiatrische Betreuung seit ..."), falls dokumentiert.
+- Testergebnisse zeitlich aufsteigend auflisten. Steht in der Frage eine verbindliche BDI-Liste, diese unverändert übernehmen — auch Datumsangaben ohne Tag (z.B. "Januar 2025") und Hinweise in eckigen Klammern.

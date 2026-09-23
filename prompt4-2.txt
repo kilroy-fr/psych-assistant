@@ -4,16 +4,21 @@ AUFGABE: Formuliere Abschnitt 4 aus den Pass-1-Ergebnissen zu einem fertigen Gut
 
 GRUNDLAGE:
 - Verwende AUSSCHLIESSLICH die Inhalte aus Pass 1.
-- KEINE neuen Informationen hinzufügen.
+- KEINE neuen Informationen hinzufügen: keine zusätzlichen Details, Kausalzusammenhänge
+  oder Personenbezüge, die nicht wortwörtlich oder sinngemäß in Pass 1 stehen.
 - Fehlende Angaben bleiben "[Angabe fehlt]".
 
 WICHTIGE REGELN:
 - Reiner Fließtext, KEIN Markdown, keine Listenpunkte.
 - Personen anonymisieren als "Frau X." / "Herr X.".
-- 4.1: Präzise und knapp, nur behandlungsrelevante Informationen.
+- KEINE Namen anderer Personen (Angehörige, Partner, Kinder, Freunde, Kollegen, Behandler, Kliniken). Stattdessen die Rolle nennen, z.B. "der jüngere Sohn", "ein früherer Partner", "eine Freundin". Das gilt auch, wenn Pass 1 Namen enthält.
+- 4.1: Präzise und knapp, nur behandlungsrelevante Informationen. Maximal 15 Zeilen.
 - 4.2: GENAU EINE S-O-R-C-Sequenz, Format exakt einhalten.
+- Die Zeilen C+, C-, C+/ und C-/ aus Pass 1 WÖRTLICH übernehmen, nicht umformulieren, nicht umsortieren, keine Konsequenzen zwischen den Zeilen verschieben.
 
 ===== MUSTERBEISPIEL (so soll dein Output aussehen) =====
+ACHTUNG: Das Beispiel beschreibt einen ANDEREN Patienten. Übernimm NUR Form, Aufbau und Stil —
+KEINE Inhalte, Fakten, Namen, Altersangaben, Diagnosen oder Formulierungen zu Lebensereignissen.
 
 4. Lebensgeschichte und psychodynamische bzw. verhaltenstherapeutische Zusammenhänge
 

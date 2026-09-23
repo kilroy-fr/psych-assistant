@@ -436,7 +436,7 @@ function renderTimingTable(timingLog, modelNames) {
     byCombo[entry.combo].push(entry);
   });
 
-  const sectionLabel = {"1-3": "Abschnitte 1-3", "4": "Abschnitt 4", "5": "Abschnitt 5", "6": "Abschnitt 6"};
+  const sectionLabel = {"1-3": "Abschnitte 1-3", "4": "Abschnitt 4", "5": "Abschnitt 5", "6": "Abschnitt 6", "Namen": "Namenprüfung"};
 
   let html = '<table class="timing-table">';
   html += '<thead><tr>';
@@ -459,7 +459,7 @@ function renderTimingTable(timingLog, modelNames) {
       html += `<tr class="${rowClass}">`;
       html += `<td>${idx === 0 ? 'Kombi ' + combo : ''}</td>`;
       html += `<td>${sectionLabel[entry.section] || entry.section}</td>`;
-      html += `<td>Pass ${entry.pass}</td>`;
+      html += `<td>${typeof entry.pass === 'number' ? 'Pass ' + entry.pass : entry.pass}</td>`;
       html += `<td><span class="timing-model">${entry.model}</span></td>`;
       html += `<td>${durStr}</td>`;
       html += '</tr>';
@@ -544,65 +544,46 @@ window.addEventListener('load', () => {
 // Vergleichstabelle
 // ============================================
 
-// Abschnitte mit 1-Pass-System (identische Ergebnisse in allen Kombis)
-// Index 0=Abschnitt 1, 1=Abschnitt 2, 2=Abschnitt 3, 4=Abschnitt 5
-const SINGLE_PASS_ROWS = [0, 1, 2, 4];
-
+// Jede Kombi bekommt in jeder Zeile eine eigene Spalte, auch bei identischem Text
+// (z.B. Abschnitt 6 per pass1_override) -- wie in der DOCX-Tabelle.
+// Frueher fasste eine feste Liste [0, 1, 2, 4] Zeilen zu einer Zelle zusammen; Abschnitte
+// 1-3 und 5 von Kombi 2 waren dadurch im Frontend nie zu sehen.
 function renderComparisonTable(data) {
   comparisonData = data;
   selectedColumns = new Array(data.sections.length).fill(0);
 
   // Setze Header für die Anzahl der tatsächlich vorhandenen Modelle
   const numModels = data.models.length;
-  for (let i = 0; i < numModels; i++) {
-    document.getElementById(`model-header-${i + 1}`).textContent = data.models[i];
-  }
+  document.querySelectorAll('#comparison-table thead th[id^="model-header-"]').forEach((th, i) => {
+    th.textContent = i < numModels ? data.models[i] : "";
+    th.style.display = i < numModels ? "" : "none";
+  });
 
   const tbody = document.getElementById("comparison-tbody");
   tbody.innerHTML = "";
 
   data.sections.forEach((sectionHeader, rowIdx) => {
     const tr = document.createElement("tr");
-    const isSinglePass = SINGLE_PASS_ROWS.includes(rowIdx);
 
-    if (isSinglePass) {
-      // Single-Pass-Abschnitte: Eine Zelle über beide Spalten
+    for (let colIdx = 0; colIdx < numModels; colIdx++) {
       const td = document.createElement("td");
-      td.className = "comparison-cell single-pass-cell selected";
+      td.className = "comparison-cell";
       td.dataset.row = rowIdx;
-      td.dataset.col = 0;
+      td.dataset.col = colIdx;
       td.dataset.tooltip = sectionHeader;
-      td.colSpan = numModels;
 
-      // Verwende HTML-formatierte Ergebnisse falls vorhanden
-      const cellContent = (data.html_results && data.html_results[0] && data.html_results[0][rowIdx])
-        ? data.html_results[0][rowIdx]
-        : data.results[0][rowIdx] || "";
+      const cellContent = (data.html_results && data.html_results[colIdx] && data.html_results[colIdx][rowIdx])
+        ? data.html_results[colIdx][rowIdx]
+        : data.results[colIdx][rowIdx] || "";
 
       td.innerHTML = cellContent;
-      tr.appendChild(td);
-    } else {
-      // 2-Pass-Abschnitte: Separate Zellen pro Modellkombination
-      for (let colIdx = 0; colIdx < numModels; colIdx++) {
-        const td = document.createElement("td");
-        td.className = "comparison-cell";
-        td.dataset.row = rowIdx;
-        td.dataset.col = colIdx;
-        td.dataset.tooltip = sectionHeader;
 
-        const cellContent = (data.html_results && data.html_results[colIdx] && data.html_results[colIdx][rowIdx])
-          ? data.html_results[colIdx][rowIdx]
-          : data.results[colIdx][rowIdx] || "";
-
-        td.innerHTML = cellContent;
-
-        if (colIdx === 0) {
-          td.classList.add("selected");
-        }
-
-        td.addEventListener("click", () => selectCell(rowIdx, colIdx));
-        tr.appendChild(td);
+      if (colIdx === 0) {
+        td.classList.add("selected");
       }
+
+      td.addEventListener("click", () => selectCell(rowIdx, colIdx));
+      tr.appendChild(td);
     }
 
     tbody.appendChild(tr);
@@ -612,11 +593,6 @@ function renderComparisonTable(data) {
 }
 
 function selectCell(rowIdx, colIdx) {
-  // Single-Pass-Zeilen haben nur eine Zelle - keine Auswahl nötig
-  if (SINGLE_PASS_ROWS.includes(rowIdx)) {
-    return;
-  }
-
   const row = document.getElementById("comparison-tbody").rows[rowIdx];
   for (let i = 0; i < row.cells.length; i++) {
     row.cells[i].classList.remove("selected");

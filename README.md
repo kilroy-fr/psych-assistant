@@ -8,7 +8,7 @@ Psychotherapeuten müssen für Kassenanträge strukturierte Berichte (PTV 3) ver
 
 1. **Patientendaten hochladen** (PDF, DOCX oder Text einfügen)
 2. **Automatische Berichtserstellung** durch lokale KI-Modelle
-3. **Vergleich** mehrerer Modellkombinationen nebeneinander
+3. **Vergleich** mehrerer Modellkombinationen nebeneinander, pro Abschnitt die bessere Fassung wählen
 4. **Export** als Word-Dokument (.docx)
 
 Der generierte Bericht folgt der PTV-3-Gliederung für VT-Umwandlungsanträge mit 6 Abschnitten:
@@ -27,8 +27,8 @@ Der generierte Bericht folgt der PTV-3-Gliederung für VT-Umwandlungsanträge mi
 ```
 Browser  ──▶  Flask-App (Docker)  ──▶  Ollama (lokale LLMs)
                 │                          │
-                ├── RAG (LlamaIndex)       ├── gemma4:12b
-                ├── DOCX-Generator         ├── deepseek-r1:14b
+                ├── RAG (LlamaIndex)       ├── gemma4:26b
+                ├── DOCX-Generator         ├── qwen3:14b
                 └── SSE-Fortschritt        └── nomic-embed-text (Embeddings)
 ```
 
@@ -37,21 +37,45 @@ Browser  ──▶  Flask-App (Docker)  ──▶  Ollama (lokale LLMs)
 
 ### Modellkombinationen
 
-Es werden **2 Kombinationen** parallel berechnet und zum Vergleich nebeneinander gestellt.
-Beide teilen sich Pass 1 sowie Pass 2 der Abschnitte 1-3 und 5 — unterschiedlich ist nur
-Pass 2 der Abschnitte 4 und 6:
+Es werden **2 Kombinationen** berechnet und nebeneinander angezeigt. In der
+Vergleichstabelle lässt sich pro Abschnitt die bessere Fassung auswählen.
 
-| Kombi | Pass 1 (alle) | Pass 2 (1-3, 5) | Pass 2 (4, 6) |
-|-------|---------------|------------------|----------------|
-| 1 | gemma4:12b | gemma4:12b | deepseek-r1:14b |
-| 2 | gemma4:12b | gemma4:12b | gemma4:12b (Temperatur 0.65) |
+| Kombi | Pass 1 (alle Abschnitte) | Pass 2 (alle Abschnitte) |
+|-------|--------------------------|--------------------------|
+| 1 | gemma4:26b (Abschnitt 6: gemma4:12b) | qwen3:14b |
+| 2 | gemma4:12b | qwen3:14b |
 
-Kombi 2 verwendet dasselbe Modell mit höherer Temperatur (0.65 statt 0.1) und liefert
-dadurch kreativere Formulierungen als Vergleichsvariante. Da die Abschnitte 1-3 und 5
-geteilt sind, liefern beide Kombis dort identische Ergebnisse.
+Beide nutzen dasselbe Pass-2-Modell, die Unterschiede entstehen also bei der
+Faktenextraktion in Pass 1. Kombi 1 liefert die besseren Ergebnisse, braucht aber
+deutlich länger, weil gemma4:26b nicht vollständig in 16 GB VRAM passt (ca. 5 Min.
+für Pass 1). Abschnitt 6 rechnet auch Kombi 1 mit gemma4:12b, dort ist der
+Qualitätsunterschied gering. Kombi 2 ist die schnelle Vergleichsspalte.
 
-Die Läufe sind so sortiert, dass alle `gemma4:12b`-Aufrufe zusammenhängend laufen —
-das Modell bleibt dabei im VRAM und muss nicht mehrfach geladen werden.
+Die Aufrufe sind nach Modell gruppiert (erst gemma4:26b, dann gemma4:12b, dann alles mit
+qwen3:14b), damit Modelle möglichst selten nachgeladen werden.
+
+Zusätzlich prüft der Code:
+- **BDI-Werte** werden per Regex aus der Akte gelesen und dem Modell als feste, sortierte
+  Liste vorgegeben.
+- **SORC-Konsequenzen:** Das Modell beantwortet je Konsequenz nur „tritt ein oder fällt
+  weg?“ und „angenehm oder unangenehm?“; die Zuordnung zu C+, C-, C+/ und C-/ macht der Code.
+- **Anonymisierung:** Name, Initialen und Geburtsdatum der Patientin/des Patienten werden
+  aus dem Aktenkopf gelesen und im Bericht ersetzt. Namen Dritter (Personen, Arbeitgeber,
+  Einrichtungen, Orte) werden gesucht und nur in den betroffenen Satzteilen durch Rollen
+  ersetzt ("der Sohn", "ein Logistikunternehmen"), mit `[Prüfhinweis: …]`.
+- **Diagnosen** mit formalen Fehlern (z.B. `F50.x`), einer nicht offiziellen Bezeichnung
+  oder einem Schweregrad, der nicht zum jüngsten BDI-II-Wert passt, werden mit
+  `[Prüfhinweis: …]` markiert.
+- **Vollständigkeit:** Fehlen in Abschnitt 1–3 Unterabschnitte, wird neu gerechnet und
+  notfalls markiert. Der psychopathologische Befund (2.3) wird auf die 11 Begriffe geprüft.
+- **Termine per Kalenderwoche** ("Reha in KW 4") werden in ein Datum umgerechnet.
+
+### Datenschutz
+
+Hochgeladene Akten werden nach dem Einlesen sofort gelöscht. `data/debug_results.log`
+enthält standardmäßig keine Akteninhalte, nur Metadaten und die BDI-Liste. Zur Fehlersuche
+lassen sich Inhalte mit `LOG_PATIENT_CONTENT=1` in `docker-compose.yml` einschalten; das
+Log enthält dann Echtdaten.
 
 ## Voraussetzungen
 
@@ -61,8 +85,9 @@ das Modell bleibt dabei im VRAM und muss nicht mehrfach geladen werden.
 - Folgende Modelle in Ollama installiert:
 
 ```bash
-ollama pull gemma4:12b         # Pass 1 (alle Abschnitte) + Pass 2
-ollama pull deepseek-r1:14b    # Pass 2 der Abschnitte 4 und 6 (Kombi 1)
+ollama pull gemma4:26b         # Pass 1 (Kombi 1)
+ollama pull gemma4:12b         # Pass 1 (Kombi 2)
+ollama pull qwen3:14b          # Pass 2 (alle), Namenprüfung
 ollama pull nomic-embed-text   # RAG-Embeddings
 ```
 
@@ -75,13 +100,13 @@ Stand: September 2026.
 | Paket | Version | Wofür |
 |-------|---------|-------|
 | flask | 3.1.3 | Web-Backend, Server-Sent Events, Datei-Upload |
-| llama-index / llama-index-core | 0.14.24 | RAG-Framework und Vector-Store |
+| llama-index / llama-index-core | 0.14.25 | RAG-Framework und Vector-Store |
 | llama-index-llms-ollama | 0.11.0 | LLM-Anbindung an Ollama |
 | llama-index-embeddings-ollama | 0.10.0 | Embeddings (`nomic-embed-text`) |
 | pydantic | 2.13.5 | Transitive Abhängigkeit, bewusst gepinnt |
 | requests | 2.34.2 | Direkte Aufrufe der Ollama-HTTP-API |
 | python-docx | 1.2.0 | DOCX-Export und Einlesen hochgeladener DOCX-Dateien |
-| pypdf | 6.18.1 | Einlesen hochgeladener PDF-Dateien |
+| pypdf | 6.19.0 | Einlesen hochgeladener PDF-Dateien |
 
 Nach einer Änderung an `requirements.txt` muss das Image neu gebaut werden:
 
@@ -123,37 +148,30 @@ Der Ollama-Host wird über die Umgebungsvariable `OLLAMA_HOST` konfiguriert (Sta
 Die verwendeten Modelle stehen in [app/app.py](app/app.py):
 
 ```python
-# Steuert die Anzahl der Kombis und die Beschriftung der Vergleichstabelle
 MODEL_COMBINATIONS = [
-    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},
-    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},
+    {"pass1": "gemma4:26b", "pass2": "qwen3:14b", "pass1_override": {"6": "gemma4:12b"}},
+    {"pass1": "gemma4:12b", "pass2": "qwen3:14b"},  # schnelle Vergleichsspalte
 ]
 
-# Liefert das tatsaechlich benutzte Pass-2-Modell fuer die Abschnitte 4 und 6
-MODEL_COMBINATIONS_SECTION4_5_6 = [
-    {"pass1": "gemma4:12b", "pass2": "deepseek-r1:14b"},
-    {"pass1": "gemma4:12b", "pass2": "gemma4:12b", "pass2_temperature": 0.65},
-]
+NAME_CHECK_MODEL = "qwen3:14b"   # Namenprüfung im fertigen Bericht
 ```
 
 `pass2_temperature` ist optional und steuert die Basis-Temperatur von Pass 2
-(Standard: 0.1).
+(Standard: 0.1). `pass1_override` ist optional und legt für einzelne Abschnitte
+(`"1-3"`, `"4"`, `"5"`, `"6"`) ein anderes Pass-1-Modell fest.
 
-**Wichtig beim Modellwechsel:** die beiden Listen sind nicht die einzige Stelle.
-
-- Das Pass-2-Modell der Abschnitte 4 und 6 kommt aus `MODEL_COMBINATIONS_SECTION4_5_6`.
-- `MODEL_COMBINATIONS` wird für die Anzahl der Kombis und für die Modellnamen in der
-  UI-Vergleichstabelle gelesen -- der dortige `pass1`-Wert steuert die Berechnung nicht.
-- Alle Pass-1-Läufe sowie Pass 2 der Abschnitte 1-3 und 5 verwenden ein hartkodiertes
-  `"gemma4:12b"` in `run_computation_task()`.
-
-Wer das Modell tauscht, muss deshalb beide Listen *und* die Literale in
-`run_computation_task()` anpassen -- sonst weicht die Beschriftung in der UI vom
-tatsächlich gerechneten Modell ab.
+`MODEL_COMBINATIONS` ist die einzige Stelle für die Modelle. Berechnung,
+Fortschrittsanzeige, Vergleichstabelle und DOCX lesen daraus. Eine Kombi entfernen
+oder hinzufügen heißt also nur: einen Eintrag streichen oder ergänzen und den
+Container neu bauen. Das Kontextfenster wird automatisch auf das Maximum des Modells
+begrenzt.
 
 ### RAG-Wissensbasis
 
-Die Leitlinien-Dokumente liegen in `data/guidelines/`. Der Index erkennt Änderungen
+Die Leitlinien-Dokumente liegen in `data/guidelines/`. Dort gehören nur Leitfäden und
+Schemata hin, **keine Beispielberichte** — alles in diesem Verzeichnis landet im
+Pass-1-Prompt, und das Modell übernimmt sonst Fakten des Beispielfalls in den Bericht.
+Beispielberichte liegen in `data/examples/` (nicht im Index). Der Index erkennt Änderungen
 automatisch: beim Start werden die Prüfsummen aller Quelldateien mit dem gespeicherten
 Fingerabdruck (`storage/index_fingerprint.json`) verglichen. Weicht etwas ab — geänderte,
 neue oder gelöschte Dateien, ein anderes Embedding-Modell oder geänderte Dokument-Metadaten —
@@ -185,8 +203,8 @@ psych-assistant/
 │   ├── static/               # CSS, JS, Assets
 │   └── templates/            # HTML-Template
 ├── data/
-│   ├── guidelines/           # Leitlinien und Checklisten (JSON + TXT)
-│   └── examples/             # Musterbeispiele für Prompts
+│   ├── guidelines/           # Leitlinien und Schemata (JSON, im RAG-Index)
+│   └── examples/             # Beispielberichte (nicht im RAG-Index)
 ├── storage/                  # Vector-Store für RAG (auto-generiert)
 ├── prompt1-1.txt / 1-2.txt   # Prompts Abschnitte 1-3 (2-Pass)
 ├── prompt4-1.txt / 4-2.txt   # Prompts Abschnitt 4 (2-Pass)

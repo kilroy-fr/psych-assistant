@@ -10,10 +10,14 @@ GRUNDLAGE:
 WICHTIGE REGELN:
 - Reiner Fließtext, KEIN Markdown, KEINE Nummerierung der Therapieziele.
 - Personen anonymisieren als "Frau X." / "Herr X.".
+- KEINE Namen anderer Personen (Angehörige, Partner, Kinder, Freunde, Kollegen, Behandler, Kliniken). Stattdessen die Rolle nennen, z.B. "der jüngere Sohn", "ein früherer Partner", "eine Freundin". Das gilt auch, wenn Pass 1 Namen enthält.
 - Therapieziele: Jedes Ziel als eigener Satz, KEINE Aufzählungszeichen.
 - Stil: medizinisch-sachlich, neutral, gutachtertauglich.
 
 ===== MUSTERBEISPIEL (so soll dein Output aussehen) =====
+ACHTUNG: Das Beispiel beschreibt einen ANDEREN Patienten. Übernimm NUR Form, Aufbau und Stil —
+KEINE Therapieziele, Fortschritte, Lebensumstände (z.B. Familienplanung, Haustiere, Arbeitsplatz)
+oder Prognosefaktoren, die nicht in den Pass-1-Ergebnissen stehen.
 
 6. Behandlungsplan und Prognose
 

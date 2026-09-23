@@ -10,24 +10,25 @@ GRUNDLAGE:
 WICHTIGE REGELN:
 - NUR Abschnitt 5 erstellen.
 - Reiner Fließtext, KEIN Markdown, keine Listenpunkte.
-- Je Diagnose: Vollständiger ICD-Code + offizielle Klartextbezeichnung (z.B. "F32.1 Mittelgradige depressive Episode").
-- Haupt- und Nebendiagnosen kennzeichnen, falls in Pass 1 unterschieden.
+- Patientin/Patient als "Frau X." / "Herr X.". KEINE Namen anderer Personen, stattdessen die Rolle nennen (z.B. "der Bruder", "ein früherer Partner").
+- Je Diagnose: Vollständiger ICD-Code + offizielle ICD-10-Bezeichnung, keine eigene Umschreibung (z.B. "F32.1 Mittelgradige depressive Episode").
+- Haupt- und Nebendiagnosen kennzeichnen, falls in Pass 1 unterschieden. Gibt es keine Nebendiagnose, unter "Nebendiagnose(n):" nur "Keine." schreiben.
 - Differenzialdiagnosen NUR wenn in Pass 1 genannt.
+- Diagnosen und Codes genau wie in Pass 1 übernehmen. KEINE eigenen Prüfhinweise, Anmerkungen oder Kommentare schreiben — die formale Prüfung erfolgt automatisch nach diesem Schritt.
 
 ===== FORMAT-VORLAGE =====
+(Text in eckigen Klammern ist eine Anweisung an dich und wird ersetzt — NIE wörtlich übernehmen.)
 
 5. Diagnose nach ICD-10
 
 Hauptdiagnose(n):
-[ICD-CODE] [DIAGNOSEBEZEICHNUNG].
+[ICD-CODE] [OFFIZIELLE ICD-10-BEZEICHNUNG].
 
 Nebendiagnose(n):
-[ICD-CODE] [DIAGNOSEBEZEICHNUNG].
-[Falls keine Unterscheidung: "[Keine Unterscheidung Haupt-/Nebendiagnose in Daten]"]
+[ICD-CODE] [OFFIZIELLE ICD-10-BEZEICHNUNG].
 
 Differenzialdiagnose(n):
-[Falls vorhanden: DD-Überlegungen aus Pass 1]
-[Falls nicht vorhanden: "[DD nicht in Daten genannt]"]
+[Je Differenzialdiagnose ein Satz: Code, Bezeichnung und Begründung, warum sie abgegrenzt bzw. ausgeschlossen wurde. Nennt Pass 1 keine, nur: "[DD nicht in Daten genannt]"]
 
 ===== ENDE FORMAT-VORLAGE =====
 

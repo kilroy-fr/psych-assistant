@@ -64,11 +64,14 @@ HEADING_MAP = build_heading_map(SCHEMA)
 
 SENSITIVE_PATTERNS = [
     (re.compile(r"\[Anonymisiert\]"), "X."),
+    # Initialenpaar zuerst: "Frau K. D." -> "Frau X.". Frueher stand hier ein "\b" nach dem
+    # letzten Punkt, das nie passt (Punkt + Leerzeichen ist keine Wortgrenze); uebrig blieb
+    # "Frau X. D." mit der Nachnamen-Initiale (Lauf 10).
+    (re.compile(r"\b[A-ZÄÖÜ]\.\s*[A-ZÄÖÜ]\.(?!\w)"), "X."),
     (re.compile(r"\b(Frau|Herr)\s+[A-ZÄÖÜ][a-zäöüß-]+"), r"\1 X."),
     (re.compile(r"\b(Frau|Herr)\s+[A-ZÄÖÜ]\."), r"\1 X."),
     (re.compile(r"\b(Name|Vorname|Nachname|Geburtsname)\b\s*[:\-]\s*[^\n]+"), r"\1: X."),
     (re.compile(r"\b(Ort|Wohnort|Geburtsort|Adresse|Straße|Strasse|Stadt|PLZ)\b\s*[:\-]\s*[^\n]+"), r"\1: F."),
-    (re.compile(r"\b[A-ZÄÖÜ]\.\s*[A-ZÄÖÜ]\.\b"), "X."),
 ]
 
 
@@ -1082,7 +1085,7 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     header_row = table.rows[0]
     header_row.cells[0].text = ""
     for idx, combo in enumerate(model_combinations, start=1):
-        header_row.cells[idx].text = f"{combo['pass1']} + {combo['pass2']}"
+        header_row.cells[idx].text = combo.get("label") or f"{combo['pass1']} + {combo['pass2']}"
     header_row.cells[cols - 1].text = ""
 
     # Extrahiere Abschnitte aus jedem Ergebnis

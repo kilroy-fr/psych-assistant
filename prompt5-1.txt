@@ -11,6 +11,15 @@ Klinische Schlussfolgerungen und Diagnoseableitungen aus dem Störungsbild sind 
 WICHTIGE REGELN:
 - Reiner Fließtext, kein Markdown, keine Listenpunkte.
 
+DIAGNOSTISCHE REGELN (ICD-10, verbindlich):
+- Schweregrad der Episode am AKTUELLEN Zustand ausrichten: jüngster Testwert (z.B. BDI-II) und aktueller Befund. Liegt der jüngste Wert im unauffälligen Bereich UND beschreibt auch der aktuelle Befund keine relevante depressive Symptomatik mehr, ist die Episode als remittiert zu kodieren (bei F33: F33.4), nicht als leicht/mittel/schwer. Widersprechen sich Testwert und Befund, beides nennen. Den zugrunde gelegten Testwert mit Datum nennen.
+- F33 (rezidivierend) nur, wenn eine frühere depressive Episode in den Daten belegt ist. Sonst F32.
+- F43.2 (Anpassungsstörung) NICHT zusätzlich kodieren, wenn die Kriterien einer depressiven Episode (F32/F33) erfüllt sind.
+- Nebendiagnosen nur für AKTUELL bestehende Störungen. Abgeklungene Störungen (z.B. frühere Essstörung) gehören in die Vorgeschichte, nicht in die Diagnosen. Für jede Nebendiagnose angeben, wann die Symptomatik zuletzt in den Daten beschrieben ist. Ist sie nur für die Vergangenheit belegt, KEINE Nebendiagnose.
+- Jeder Code vollständig (z.B. F41.1, nicht F41.x) und mit der offiziellen ICD-10-Bezeichnung, keine eigene Umschreibung. Ist der Subtyp aus den Daten nicht bestimmbar, dies ausdrücklich sagen.
+- Eine Störung ist ENTWEDER Neben- ODER Differenzialdiagnose, nie beides.
+- Differenzialdiagnosen nur, wenn konkrete Befunde aus den Daten dafür sprechen. Persönlichkeitszüge wie Perfektionismus begründen keine Zwangsstörung; situative Befürchtungen begründen keine Angststörung. Für jede Differenzialdiagnose angeben, was dafür und was dagegen spricht.
+
 FORMULIERE FOLGENDES ausführlich im Fließtext (klinische Begründung für jede Diagnose angeben):
 
 Zur Hauptdiagnose: Welche Hauptdiagnose ergibt sich aus dem klinischen Gesamtbild? ICD-Code mit vollständiger Begründung aus den Symptomen, dem Schweregrad und dem Verlauf.

@@ -1,7 +1,11 @@
 import os
+import re
+import shutil
 import tempfile
+import threading
 import logging
 import requests
+from functools import lru_cache
 
 from llama_index.core import Settings
 from llama_index.llms.ollama import Ollama
@@ -34,6 +38,29 @@ Settings.embed_model = OllamaEmbedding(
     base_url=OLLAMA_HOST,
 )
 
+@lru_cache(maxsize=None)
+def model_max_ctx(model_name: str) -> Optional[int]:
+    """Maximale Kontextlaenge laut Ollama (/api/show), None wenn unbekannt.
+
+    Die num_ctx-Werte unten werden nach Namensmuster gewaehlt (":14b" -> 48K).
+    qwen3:14b kann aber nur 40K -- ohne Kappung wuerde das Fenster ueberzogen.
+    """
+    try:
+        resp = requests.post(f"{OLLAMA_HOST}/api/show", json={"model": model_name}, timeout=10)
+        resp.raise_for_status()
+        for key, value in resp.json().get("model_info", {}).items():
+            if key.endswith(".context_length"):
+                return int(value)
+    except Exception as e:
+        logger.warning(f"Kontextlaenge fuer {model_name} nicht ermittelbar: {e}")
+    return None
+
+
+def cap_num_ctx(num_ctx: int, model_name: Optional[str]) -> int:
+    max_ctx = model_max_ctx(model_name) if model_name else None
+    return min(num_ctx, max_ctx) if max_ctx else num_ctx
+
+
 def get_index():
     global _index
     if _index is None:
@@ -42,6 +69,38 @@ def get_index():
     return _index
 
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx"}
+
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def strip_think(text: str, model_name: Optional[str] = None) -> str:
+    """
+    Entfernt Reasoning-Spuren (<think>...</think>) aus einer Modellantwort.
+
+    Manche Modelle (z.B. deepseek-r1) ignorieren "think": False und schreiben
+    ihre Denkspur trotzdem in "response". Die darf nie im Bericht landen.
+    - Geschlossene Bloecke werden entfernt.
+    - Steht nur ein "</think>" ohne Anfang (Template hat "<think>" vorbelegt),
+      wird alles davor verworfen.
+    - Ein offenes "<think>" ohne Ende (num_predict erschoepft) wird samt Rest
+      verworfen -- unvollstaendiges Reasoning ist kein Berichtstext.
+    """
+    if not text or "think>" not in text.lower():
+        return text
+
+    cleaned = _THINK_BLOCK_RE.sub("", text)
+    lower = cleaned.lower()
+    if "</think>" in lower:
+        cleaned = cleaned[lower.rindex("</think>") + len("</think>"):]
+        lower = cleaned.lower()
+    if "<think>" in lower:
+        cleaned = cleaned[:lower.index("<think>")]
+
+    diag_logger.warning(
+        f"Reasoning-Spur aus Antwort von {model_name or 'unbekannt'} entfernt "
+        f"({len(text)} -> {len(cleaned.strip())} Zeichen)"
+    )
+    return cleaned.strip()
 
 
 def extract_text_from_files(uploaded_files):
@@ -54,54 +113,66 @@ def extract_text_from_files(uploaded_files):
         return []
 
     texts = []
+    # Die Akte wird nur zum Einlesen kurz auf Platte geschrieben und danach
+    # geloescht. Frueher blieb jede hochgeladene Akte dauerhaft in /tmp liegen.
     tmpdir = tempfile.mkdtemp(prefix="uploaded_docs_")
+    try:
+        for f in uploaded_files:
+            filename = f.filename or ""
+            ext = os.path.splitext(filename)[1].lower()
 
-    for f in uploaded_files:
-        filename = f.filename or ""
-        ext = os.path.splitext(filename)[1].lower()
+            if ext not in ALLOWED_EXTENSIONS:
+                continue
 
-        if ext not in ALLOWED_EXTENSIONS:
-            continue
+            safe_name = secure_filename(filename)
+            path = os.path.join(tmpdir, safe_name)
+            f.save(path)
 
-        safe_name = secure_filename(filename)
-        path = os.path.join(tmpdir, safe_name)
-        f.save(path)
-
-        try:
-            text = ""
-            if ext == ".txt":
-                with open(path, "r", encoding="utf-8", errors="replace") as fh:
-                    text = fh.read()
-            elif ext == ".docx":
-                from docx import Document as DocxDocument
-                doc = DocxDocument(path)
-                text = "\n".join(para.text for para in doc.paragraphs if para.text.strip())
-            elif ext == ".pdf":
-                try:
-                    from pypdf import PdfReader
-                    reader = PdfReader(path)
-                    text = "\n".join(page.extract_text() or "" for page in reader.pages)
-                except ImportError:
+            try:
+                text = ""
+                if ext == ".txt":
+                    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                        text = fh.read()
+                elif ext == ".docx":
+                    from docx import Document as DocxDocument
+                    doc = DocxDocument(path)
+                    text = "\n".join(para.text for para in doc.paragraphs if para.text.strip())
+                elif ext == ".pdf":
                     try:
-                        import pdfplumber
-                        with pdfplumber.open(path) as pdf:
-                            text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+                        from pypdf import PdfReader
+                        reader = PdfReader(path)
+                        text = "\n".join(page.extract_text() or "" for page in reader.pages)
                     except ImportError:
-                        diag_logger.warning(f"Kein PDF-Parser verfuegbar fuer {filename}")
+                        try:
+                            import pdfplumber
+                            with pdfplumber.open(path) as pdf:
+                                text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+                        except ImportError:
+                            diag_logger.warning(f"Kein PDF-Parser verfuegbar fuer {ext}-Datei")
 
-            if text.strip():
-                texts.append(text)
-                diag_logger.info(
-                    f"Datei extrahiert: {filename} ({len(text)} Zeichen) | "
-                    f"Vorschau: {repr(text[:300])}"
-                )
-            else:
-                diag_logger.warning(f"Datei leer nach Extraktion: {filename} ({ext})")
+                # Keine Inhaltsvorschau und kein Dateiname im Log: beides kann
+                # Klarname und Geburtsdatum enthalten.
+                if text.strip():
+                    texts.append(text)
+                    diag_logger.info(f"Datei extrahiert: {ext}-Datei ({len(text)} Zeichen)")
+                else:
+                    diag_logger.warning(f"Datei leer nach Extraktion ({ext})")
 
-        except Exception as e:
-            diag_logger.error(f"Fehler beim Laden von {filename}: {e}")
+            except Exception as e:
+                diag_logger.error(f"Fehler beim Laden einer {ext}-Datei: {e}")
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
     return texts
+
+
+# done_reason des letzten Ollama-Aufrufs in diesem Thread ("stop" / "length").
+# Die Berechnung laeuft in einem eigenen Thread, der Wert gehoert also zum Lauf.
+_last_call = threading.local()
+
+
+def last_done_reason() -> Optional[str]:
+    return getattr(_last_call, "done_reason", None)
 
 
 def answer_question(
@@ -112,6 +183,7 @@ def answer_question(
     disable_rag: bool = False,
     temperature: Optional[float] = None,
     num_ctx_override: Optional[int] = None,
+    repeat_penalty: Optional[float] = None,
 ) -> str:
     """
     Beantwortet eine Frage anhand des globalen Psychotherapie-Index
@@ -123,7 +195,11 @@ def answer_question(
         List[FileStorage] aus Flask (request.files.getlist("files"))
     disable_rag:
         Wenn True, wird kein RAG verwendet (nur LLM + Prompt)
+    repeat_penalty:
+        Optional (nur RAG-Modus), bremst Wiederholungsschleifen. Wird nur beim
+        Retry nach done_reason "length" gesetzt.
     """
+    _last_call.done_reason = None
 
     question = (question or "").strip()
     system_prompt = (system_prompt or "").strip()
@@ -179,6 +255,7 @@ def answer_question(
                     # Explizit kleine Modelle mit reduziertem Context
                     elif any(size in model_lower for size in ['3b', '4b', '7b', '8b', '9b']):
                         num_ctx = 8192
+            num_ctx = cap_num_ctx(num_ctx, model_name)
 
             # Temperatur (Override oder Default 0.1)
             temp = temperature if temperature is not None else 0.1
@@ -204,7 +281,15 @@ def answer_question(
             resp = requests.post(ollama_url, json=payload, timeout=1200.0)
             resp.raise_for_status()
             result = resp.json()
-            return result.get("response", "").strip()
+            answer = strip_think(result.get("response", "").strip(), model_name)
+            _last_call.done_reason = result.get("done_reason")
+            # Nur Metadaten, kein Inhalt. done_reason "length" = num_predict erschoepft.
+            diag_logger.info(
+                f"Direktaufruf (ohne RAG) - Modell: {model_name} - Laenge: {len(answer)} Zeichen - "
+                f"done_reason: {result.get('done_reason')} - Tokens: {result.get('eval_count')} - "
+                f"num_ctx: {num_ctx}, temp: {temp}"
+            )
+            return answer
         except requests.exceptions.Timeout:
             return ("⏱️ Die Anfrage hat zu lange gedauert (Timeout nach 20 Minuten).\n\n"
                     "Empfehlung: Verwenden Sie ein größeres/schnelleres Modell für Pass 2.")
@@ -266,6 +351,7 @@ def answer_question(
         elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['3b', '4b', '7b', '8b', '9b']):
             num_ctx_rag = 36864  # 36 - kleine Modelle vertragen das gut
             logger.info(f"Pass 1: Kleines Modell ({model_name}), num_ctx={num_ctx_rag}")
+    num_ctx_rag = cap_num_ctx(num_ctx_rag, model_name)
 
     # 4) NEUER ANSATZ: Direkte Ollama API statt LlamaIndex Query Engine
     # Problem: LlamaIndex Query Engine behandelt Patientendaten als "Frage", nicht als Kontext
@@ -352,16 +438,26 @@ Frage: {question}"""
             # gemma4:12b, siehe debug_results.log). Reasoning bringt hier nichts.
             "think": False,
             "options": {
-                "temperature": 0.3,  # Etwas höher für bessere Extraktion
+                # Bei 0.3 lieferten zwei Laeufe mit derselben Akte unterschiedliche
+                # BDI-Werte, Daten und Methodennamen.
+                "temperature": 0.1,
                 "num_ctx": num_ctx_rag,
                 "num_predict": num_predict
             }
         }
+        if repeat_penalty is not None:
+            payload["options"]["repeat_penalty"] = repeat_penalty
 
         resp = requests.post(ollama_url, json=payload, timeout=1200.0)
         resp.raise_for_status()
         result = resp.json()
-        return result.get("response", "").strip()
+        _last_call.done_reason = result.get("done_reason")
+        diag_logger.info(
+            f"RAG-Aufruf - Modell: {model_name} - done_reason: {result.get('done_reason')} - "
+            f"Tokens: {result.get('eval_count')}/{num_predict} - num_ctx: {num_ctx_rag}"
+            + (f" - repeat_penalty: {repeat_penalty}" if repeat_penalty is not None else "")
+        )
+        return strip_think(result.get("response", "").strip(), model_name)
 
     except requests.exceptions.Timeout:
         return ("⏱️ Die Anfrage hat zu lange gedauert (Timeout nach 15 Minuten).\n\n"

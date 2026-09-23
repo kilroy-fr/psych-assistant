@@ -12,6 +12,7 @@ WICHTIGE REGELN:
 - Reiner Fließtext, KEIN Markdown, keine Listenpunkte.
 - Personen anonymisieren als "Frau X." / "Herr X.", Orte als "F.".
 - Das S-O-R-C-Modell ist eine klinische Konzeptualisierung — Inferenzen und Schlussfolgerungen aus dem Störungsbild sind hier ausdrücklich gewünscht.
+- Biographische FAKTEN (Todesfälle, Trennungen, Heirat, Geburten, Jahreszahlen) dagegen NUR übernehmen, wenn sie ausdrücklich die Patientin/den Patienten betreffen. Die Notizen berichten auch über andere Personen (Freundinnen, Geschwister, Kinder) — deren Erlebnisse NIE auf die Patientin/den Patienten übertragen. Keine Jahreszahlen erschließen.
 
 PLATZHALTER-ANWEISUNGEN (Überschriften sind statisch, ersetze NUR die {PLATZHALTER}):
 - {BIOGRAPHIE}: Kindheit, Jugend, prägende Ereignisse, Beziehungen, Berufsentwicklung, Erkrankungsbeginn — chronologisch und behandlungsrelevant. Leite relevante Informationen aus dem Gesamtkontext ab, auch wenn sie nicht wortwörtlich so formuliert sind.
@@ -30,13 +31,37 @@ PLATZHALTER-ANWEISUNGEN (Überschriften sind statisch, ersetze NUR die {PLATZHAL
 ===== ENDE FORMAT-VORLAGE =====
 
 SORC-FORMAT (für {SORC_MODELL}):
-S: Extern: [ÄUSSERE AUSLÖSER]; Intern: [INNERE AUSLÖSER]
+S: Extern: [ÄUSSERE AUSLÖSER]; Intern: [INNERE AUSLÖSER IM MOMENT: Gedanken, Körperempfindungen, Gefühle direkt vor dem Verhalten — NICHT die Überlebensregel aus O wiederholen]
 O: Genetik: [GENETISCHE FAKTOREN]; Somatik: [SOMATISCHE FAKTOREN]; Erziehung: [ERZIEHUNGSFAKTOREN]; Persönlichkeit: [PERSÖNLICHKEITSMERKMALE]; Überlebensregel: [ÜBERLEBENSREGEL]
 R: Gedanken: [KOGNITIONEN]; Gefühle: [EMOTIONEN]; Körperreaktionen: [PHYSIOLOGIE]; Verhalten: [VERHALTENSWEISEN]
-C+: [POSITIVE VERSTÄRKUNG]
-C-: [NEGATIVE VERSTÄRKUNG]
-C+/: [POSITIVE BESTRAFUNG oder "[Angabe fehlt]"]
-C-/: [NEGATIVE BESTRAFUNG]
+KONSEQUENZEN:
+K: [VERHALTEN AUS R] | [KURZFRISTIGE FOLGE] | [tritt ein ODER fällt weg] | [angenehm ODER unangenehm] | [LANGFRISTIGE FOLGE]
+K: ...
+
+KONSEQUENZEN — SO GEHT'S:
+Schreibe KEINE Zeilen C+, C-, C+/, C-/. Die Zuordnung übernimmt das Programm aus deinen Angaben.
+Gehe für JEDES Problemverhalten diese vier Fragen durch und schreibe für jede zutreffende Antwort eine eigene K-Zeile:
+  a) Was Angenehmes tritt kurzfristig ein?
+  b) Was Unangenehmes tritt kurzfristig ein?
+  c) Was Angenehmes fällt kurzfristig weg?
+  d) Was Unangenehmes fällt kurzfristig weg? (z.B. Anspannung, Angst, Konflikt)
+Aufrechterhaltende Verhaltensweisen haben fast immer mindestens eine Antwort auf a) oder d).
+Schreibe insgesamt 3 bis 8 Zeilen, jede beginnt mit "K:" und hat GENAU 5 Felder, getrennt durch "|":
+1. Verhalten: ein Problemverhalten, das unter R steht (kurz, z.B. "Rückzug").
+2. Kurzfristige Folge: was unmittelbar nach dem Verhalten passiert (kurz, ohne Verb, z.B. "Anspannung").
+3. "tritt ein" oder "fällt weg": Kommt die Folge neu hinzu oder hört sie auf?
+4. "angenehm" oder "unangenehm": Wie erlebt die Patientin die Folge SELBST (nicht ihr Wegfallen)?
+5. Langfristige Folge (kurz, ohne Verb, z.B. "soziale Isolation").
+
+WICHTIG:
+- Endet oder unterbleibt durch das Verhalten etwas Unangenehmes (Anspannung, Angst, Konflikt, Druck, Schuldgefühl, Kritik), dann schreibe das UNANGENEHME als Folge und wähle "fällt weg" und "unangenehm". Schreibe NIEMALS "Entlastung", "Erleichterung", "Ruhe" oder "Vermeidung von ..." als Folge.
+- Gesundes Zielverhalten (Grenzen setzen, Hilfe annehmen, Pausen machen) ist KEIN Verhalten für die Konsequenzen. Es ist Therapieziel (Abschnitt 6).
+
+BEISPIEL — ANDERES STÖRUNGSBILD (Agoraphobie), NUR das Format übernehmen, KEINE Inhalte:
+K: Vermeidung von Busfahrten | Angst | fällt weg | unangenehm | Ausweitung der Vermeidung
+K: Vermeidung von Busfahrten | Zuwendung des Partners, der sie fährt | tritt ein | angenehm | Abhängigkeit vom Partner
+K: Vermeidung von Busfahrten | Beschämung bei Absagen | tritt ein | unangenehm | sinkender Selbstwert
+K: Vermeidung von Busfahrten | Treffen mit Freunden | fällt weg | angenehm | soziale Isolation
 
 JETZT ABSCHNITT 4 MIT DEN ECHTEN PATIENTENDATEN ERSTELLEN (Überschriften EXAKT übernehmen, NUR {PLATZHALTER} ersetzen):
 

@@ -16,8 +16,8 @@ WICHTIGE REGELN:
 
 PLATZHALTER-ANWEISUNGEN (Überschriften sind statisch, ersetze NUR die {PLATZHALTER}):
 - {ZIEL_1}, {ZIEL_2}, {ZIEL_3}, ...: Je ein Therapieziel als vollständiger Satz (aus Daten oder klinisch abgeleitet)
-- {BEHANDLUNGSPLAN}: Bisherige Therapiefortschritte bezogen auf die Therapieziele, angewandte Methoden, erreichte Veränderungen — ggf. aus dem Gesamtbild ableiten
-- {PROGNOSE}: Prognostische Einschätzung mit günstigen und ungünstigen Faktoren, Begründung für Langzeittherapie — klinische Einschätzung auf Basis der Patientendaten
+- {BEHANDLUNGSPLAN}: Bisherige Therapiefortschritte bezogen auf die einzelnen Therapieziele, angewandte Methoden, erreichte Veränderungen — ggf. aus dem Gesamtbild ableiten. Zum Schluss (Umwandlung in Langzeittherapie): weiterführende Ziele und konkret geplante Maßnahmen für die Fortsetzung benennen.
+- {PROGNOSE}: Prognostische Einschätzung. Günstige Faktoren UND ungünstige Faktoren jeweils ausdrücklich benennen (z.B. "Günstig sind ... Ungünstig wirken sich ... aus."). Danach Begründung für die Langzeittherapie — klinische Einschätzung auf Basis der Patientendaten
 
 ===== FORMAT-VORLAGE (Überschriften EXAKT übernehmen, NUR {PLATZHALTER} ersetzen!) =====
 
