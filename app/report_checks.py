@@ -278,6 +278,25 @@ def missing_subsections_13(text):
     return [n for n, rx in _REQUIRED_13 if not re.search(rx, text, re.IGNORECASE | re.MULTILINE)]
 
 
+# Nummerierte Ueberschriftszeile ("2.4 Krankheitsverstaendnis der Patientin"): kurz, ohne Satzende
+_PASS1_HEADING_RE = re.compile(r"^[ \t]*\d(?:\.\d)?\.?[ \t]+([^\n]{3,100}?)[ \t]*$", re.MULTILINE)
+
+
+def strip_pass1_heading_numbers(text):
+    """Entfernt die Nummern aus Ueberschriften im Pass-1-Text fuer 1-3, bevor er an Pass 2 geht.
+
+    gemma4:26b gliedert Pass 1 trotz "Reiner Fliesstext" schon wie den fertigen Bericht
+    ("1.1 …", "2.4 …", "3.3 …"). qwen3:14b kopiert diese Vorlage dann bis 2.3 fast
+    woertlich und hoert auf -- reproduzierbar bei jeder Temperatur, obwohl 2.4-3.3 im
+    Pass-1-Text vollstaendig stehen. Ohne Nummern ("Krankheitsverstaendnis der
+    Patientin:") schreibt Pass 2 alle Abschnitte (Test September 2026, je 2 Laeufe).
+    """
+    return _PASS1_HEADING_RE.sub(
+        lambda m: m.group(0) if m.group(1).endswith((".", ";", ",")) else m.group(1).rstrip(":") + ":",
+        text,
+    )
+
+
 _BEFUND_TERMS = ["Bewusstsein", "Orientierung", "Kognition", "Denken formal und inhaltlich", "Ängste",
                  "Wahrnehmung", "Ich-Störungen", "Affekt", "Antrieb", "zirkadiane Besonderheiten",
                  "Suizidalität"]

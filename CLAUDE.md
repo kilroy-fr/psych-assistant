@@ -158,6 +158,14 @@ SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
     vollständigste Fassung behalten. Bleibt es unvollständig, steht ein Prüfhinweis im
     betroffenen Abschnitt statt einer leeren Zelle. In Lauf 8 brach qwen3:14b einmal nach
     2.3 ab, das fiel vorher nicht auf.
+  - `strip_pass1_heading_numbers()` entfernt vor Pass 2 die Nummern aus Überschriften im
+    Pass-1-Text ("2.4 Krankheitsverständnis …" → "Krankheitsverständnis …:"). gemma4:26b
+    gliedert Pass 1 trotz "Reiner Fließtext" schon wie den fertigen Bericht; qwen3:14b
+    kopierte diese Vorlage dann bis 2.3 fast wörtlich und hörte auf — bei jeder
+    Temperatur, obwohl 2.4–3.3 vollständig im Pass-1-Text standen. Die Wiederholungen
+    oben halfen dagegen nicht (drei fast identische Ausgaben). Nachgestellt mit der
+    Akte vom Lauf am 23.09.2026: mit Nummern 2/2 Läufe abgebrochen, ohne Nummern 3/3 vollständig.
+    gemma4:12b schreibt unnummeriert und ist nicht betroffen.
   - `check_befund_23()` prüft 2.3 auf genau die 11 Befundbegriffe in fester Reihenfolge und
     darauf, dass kein Begriff unter einem anderen mitbefundet wird ("Wahrnehmung: keine
     Ich-Störungen" neben "Ich-Störungen: [Angabe fehlt]").
@@ -339,6 +347,9 @@ Bei zu langem Eingabetext greift eine zweistufige Kürzung:
 2. Patientendaten: Chunks von hinten entfernen bis Prompt ins Fenster passt
 
 Modellgrößen-Erkennung via Namens-Pattern (`:12b`, `:14b` etc.) → `num_ctx_rag` 8K–49K.
+`26b` stand bis September 2026 nicht in der Liste der mittleren Modelle, gemma4:26b bekam
+deshalb nur den 32K-Default statt 48K. Bei der Akte vom 23.09.2026 (knapp 20K Tokens)
+reichte das noch, bei längeren Akten hätte die Kürzung Patientendaten entfernt.
 
 ### Index-Aktualität (`build_index.py`)
 

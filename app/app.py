@@ -39,6 +39,7 @@ from app.model_config import (
 )
 from app.report_checks import (
     missing_subsections_13,
+    strip_pass1_heading_numbers,
     section13_hints,
     add_diagnosis_hints,
     check_diagnosis_certainty,
@@ -514,6 +515,9 @@ def run_computation_task(session_id, file_contents, paste_text):
                     continue
                 _, _, prompt2, _, note = next(s for s in sections if s[0] == key)
                 pass1_text = pass1_results[(p1, key)]
+                if key == "1-3":
+                    # Nummerierte Pass-1-Gliederung liess qwen nach 2.3 abbrechen
+                    pass1_text = strip_pass1_heading_numbers(pass1_text)
                 if is_pass1_failed(pass1_text):
                     text = pass1_text
                 else:

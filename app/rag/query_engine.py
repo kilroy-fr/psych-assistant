@@ -340,7 +340,9 @@ def answer_question(
             logger.info(f"Pass 1: SEHR GROSSES Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Mittlere Modelle (14-34B): Brauchen mehr Context für vollständige Patientendaten
         # WICHTIG: Diese müssen VOR den kleineren Modellen geprüft werden (14b enthält auch "4b"!)
-        elif any(f':{size}' in model_lower or f'-{size}' in model_lower for size in ['14b', '20b', '27b', '34b']):
+        # 26b fehlte bis September 2026 und fiel auf den 32K-Default zurueck
+        elif any(f':{size}' in model_lower or f'-{size}' in model_lower
+                 for size in ['14b', '20b', '26b', '27b', '34b']):
             num_ctx_rag = 49152  # 48K für mittlere Modelle - verhindert Prompt-Kürzung
             logger.info(f"Pass 1: Mittleres Modell ({model_name}), num_ctx={num_ctx_rag}")
         # Kleine-mittlere Modelle (12-13B): Guter Kompromiss
