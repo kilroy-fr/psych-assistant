@@ -58,7 +58,7 @@ wird nur einmal gerechnet. `combo_label()` zeigt den Override in UI und DOCX an.
 Jede Kombi rechnet **alle** Abschnitte mit ihrem eigenen Pass-1- und Pass-2-Modell. Die
 Ergebnisse stehen in der Vergleichstabelle nebeneinander, pro Abschnitt kann eine Spalte
 gewählt werden. Beide Kombis nutzen dasselbe Pass-2-Modell, damit Unterschiede auf Pass 1
-zurückgehen. Die Modelle stehen nur noch in `MODEL_COMBINATIONS` (`app.py`); die
+zurückgehen. Die Modelle stehen nur noch in `MODEL_COMBINATIONS` (`app/model_config.py`); die
 Fortschrittsanzeige in `index.html` wird daraus erzeugt.
 
 `gemma4:26b` ist das Hauptmodell für Pass 1. Es passt auf der 16-GB-GPU nicht vollständig
@@ -98,10 +98,10 @@ Sicherheitsnetz, unabhängig vom Modell, und loggt das in `debug_results.log`.
 
 ### Wo die Modellnamen stehen
 
-- **`MODEL_COMBINATIONS`** (`app.py`): Pass-1- und Pass-2-Modell je Kombi, optional
+- **`MODEL_COMBINATIONS`** (`app/model_config.py`): Pass-1- und Pass-2-Modell je Kombi, optional
   `pass2_temperature` und `pass1_override` (Pass-1-Modell je Abschnitt, z.B.
   `{"6": "gemma4:12b"}`). Das ist die einzige Stelle, UI und DOCX lesen daraus.
-- **`NAME_CHECK_MODEL`** (`app.py`): Modell der Namenprüfung.
+- **`NAME_CHECK_MODEL`** (`app/model_config.py`): Modell der Namenprüfung.
 
 `query_engine.cap_num_ctx()` fragt die maximale Kontextlänge eines Modells bei Ollama ab
 (`/api/show`) und kappt `num_ctx` darauf. Die Werte in `query_engine.py` werden nach
@@ -117,9 +117,13 @@ derselben Akte unterschiedliche BDI-Werte, Daten und Methodennamen.
 ### Absicherungen im Code (nicht nur im Prompt)
 
 Manche Regeln befolgt das Modell trotz Prompt nicht zuverlässig. Sie werden deshalb im
-Code geprüft:
+Code geprüft. Die deterministischen Akte-Pruefungen/Extraktionen (ICD, Abschnitt 1-3,
+BDI, Medikamentendosis, Kalenderwochen) liegen in `app/report_checks.py`, die
+SORC-Konsequenzlogik in `app/sorc.py`, Namenprüfung/Anonymisierung in
+`app/anonymization.py`; die Modul-Aufteilung folgt genau den Ueberschriften unten.
+`app/app.py` ruft diese Funktionen nur noch aus `run_computation_task()` auf.
 
-- `add_diagnosis_hints()` (`app.py`) hängt an Abschnitt 5 `[Prüfhinweis: …]`-Zeilen an:
+- `add_diagnosis_hints()` (`app/report_checks.py`) hängt an Abschnitt 5 `[Prüfhinweis: …]`-Zeilen an:
   bei unvollständigen Codes (`F50.x`), bei F43.2 neben F32/F33, wenn derselbe Code
   zugleich als Diagnose und als Differenzialdiagnose steht, und wenn der Schweregrad
   (F32.0–F33.4) nicht zum jüngsten BDI-II-Wert passt. Bereiche nach Beck/Hautzinger:
@@ -246,8 +250,9 @@ Code geprüft:
   ausgeglichen bleiben und der Rest fast gleich blieb (Ähnlichkeit ≥ 0,7). Sonst wird
   der Name auf die Initiale gekürzt. Ein Prüfhinweis nennt die Anzahl, nicht die Namen.
   Bewusst kein kompletter dritter Durchgang über den Bericht: qwen baut beim Umschreiben
-  Wortfehler ein oder kürzt, das fiele im ganzen Text nicht auf. `add_name_hints()` wird
-  nicht mehr aufgerufen.
+  Wortfehler ein oder kürzt, das fiele im ganzen Text nicht auf. Ein frueheres
+  `add_name_hints()` (ersetzte Namen nicht, haengte nur einen Hinweis an) wurde nirgends
+  mehr aufgerufen und beim Modul-Refactoring entfernt.
   Die Patientin/der Patient selbst wird vorher deterministisch anonymisiert:
   `extract_patient_identity()` liest Name und Geburtsdatum aus dem Aktenkopf
   ("Nachname, Vorname geb. TT.MM.JJJJ"), `anonymize_patient()` ersetzt Name, Vor- und
@@ -301,8 +306,9 @@ nicht über Git verteilt.
 - `.dockerignore` hält `*.log` aus dem Image. `COPY data ./data` hatte das Log mit Echtdaten
   in jedes Image kopiert.
 
-Die Helfer `run_section4()`, `run_section5()` und `run_section6()` sind Altlasten aus
-der Zeit vor `run_computation_task()` und werden nirgends mehr aufgerufen.
+Die Helfer `run_section4()`, `run_section5()`, `run_section6()` und `run_model_combination()`
+waren Altlasten aus der Zeit vor `run_computation_task()`, wurden nirgends mehr aufgerufen
+und beim Modul-Refactoring aus `app.py` entfernt.
 
 ### Ausführungsreihenfolge (`run_computation_task`)
 
@@ -361,7 +367,14 @@ Build ab (z.B. Ollama nicht erreichbar), gilt der Index weiterhin als veraltet.
 
 ## Wichtige Dateien
 
-- `app/app.py` — Flask-Backend, Modellkombinationen, Abschnitts-Orchestrierung
+- `app/app.py` — Flask-Routen, Pass-1-/Pass-2-Ausführung, `run_computation_task()`
+  (Abschnitts-Orchestrierung)
+- `app/model_config.py` — `MODEL_COMBINATIONS`, Abschnitts-Header, Prompt-Laden
+- `app/report_checks.py` — deterministische Akte-Prüfungen/-Extraktion (ICD, Abschnitt
+  1-3, BDI, Medikamentendosis, Kalenderwochen), siehe "Absicherungen im Code"
+- `app/sorc.py` — SORC-Konsequenzzuordnung (`build_consequence_lines()` u.a.)
+- `app/anonymization.py` — Namenprüfung und Anonymisierung (Patientin/Patient und Dritte)
+- `app/logging_setup.py` — `debug_logger`, `LOG_PATIENT_CONTENT`
 - `app/docx_generator.py` — Word-Dokument-Erstellung mit Schema-Validierung
 - `app/rag/query_engine.py` — RAG-Abfragen gegen Ollama
 - `app/rag/build_index.py` — Index-Erstellung aus Leitlinien-Dokumenten
@@ -378,7 +391,7 @@ Beruf, BDI-Werte und Medikation dieses Falls in fremde Berichte. Die Datei liegt
 `prompt6-2.txt`; sie sind deshalb ausdrücklich als "anderer Patient, nur Form übernehmen" markiert.
 
 `prompt*_m.txt` (männliche Varianten) liegen im Repo, werden aber **nicht verwendet**:
-weder von `app.py` geladen noch im Dockerfile ins Image kopiert. Die Genus-Anpassung
+weder von `app/model_config.py` geladen noch im Dockerfile ins Image kopiert. Die Genus-Anpassung
 läuft stattdessen über das `alternatives`-Array im Report-Schema (`docx_generator.py`).
 
 ## Konventionen
