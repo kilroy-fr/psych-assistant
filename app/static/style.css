@@ -92,6 +92,21 @@ button:hover {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.version-badge {
+  background: #374151;
+  color: #9ca3af;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-family: monospace;
+  letter-spacing: 0.03em;
+}
+
 .header-container h1 {
   margin: 0;
 }

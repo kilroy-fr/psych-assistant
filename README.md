@@ -65,7 +65,12 @@ Zusätzlich prüft der Code:
   ersetzt ("der Sohn", "ein Logistikunternehmen"), mit `[Prüfhinweis: …]`.
 - **Diagnosen** mit formalen Fehlern (z.B. `F50.x`), einer nicht offiziellen Bezeichnung
   oder einem Schweregrad, der nicht zum jüngsten BDI-II-Wert passt, werden mit
-  `[Prüfhinweis: …]` markiert.
+  `[Prüfhinweis: …]` markiert. Ebenso, wenn eine Diagnose, die die Akte durchgängig nur
+  als Verdacht führt, im Bericht als gesichert erscheint (unter Haupt-/Nebendiagnose(n)
+  statt Differenzialdiagnose(n), oder als "gesichert"/"bestätigt" formuliert).
+- **Medikamentendosis:** Abschnitt 3.2 wird gegen die zuletzt in der Akte dokumentierte
+  Dosis je Wirkstoff geprüft; weicht sie ohne Datumsbezug ("Stand: …") ab, gibt es einen
+  `[Prüfhinweis: …]`.
 - **Vollständigkeit:** Fehlen in Abschnitt 1–3 Unterabschnitte, wird neu gerechnet und
   notfalls markiert. Der psychopathologische Befund (2.3) wird auf die 11 Begriffe geprüft.
 - **Termine per Kalenderwoche** ("Reha in KW 4") werden in ein Datum umgerechnet.
@@ -230,6 +235,11 @@ psych-assistant/
 4. Der Fortschritt wird live per Server-Sent Events angezeigt
 5. Nach Abschluss: Ergebnisse der Modellkombinationen in einer **Vergleichstabelle** sehen
 6. Beste Passagen pro Abschnitt auswählen und als **Word-Dokument exportieren**
+
+## Version
+
+Die aktuelle Version steht in `VERSION` und wird als Badge oben rechts im Header
+angezeigt. Ein lokaler Git-Hook erhöht die Patch-Version bei jedem Commit automatisch.
 
 ## Hinweise
 

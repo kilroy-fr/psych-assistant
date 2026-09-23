@@ -1068,8 +1068,8 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     doc = Document()
 
     num_combos = len(model_combinations)
-    # Tabelle: Header + Abschnittszeilen, Spalten = 1 Ueberschrift + n Kombis + 1 Leer
-    cols = num_combos + 2
+    # Tabelle: Header + Abschnittszeilen, Spalten = 1 Ueberschrift + n Kombis
+    cols = num_combos + 1
     table = doc.add_table(rows=len(section_headers) + 1, cols=cols)
     table.style = "Table Grid"
 
@@ -1077,16 +1077,14 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
     for row in table.rows:
         if cols > 0:
             row.cells[0].width = Cm(4)    # Ueberschriften
-        for idx in range(1, cols - 1):
+        for idx in range(1, cols):
             row.cells[idx].width = Cm(4)  # Kombis
-        row.cells[cols - 1].width = Cm(1)  # Leer
 
     # Header-Zeile (erste Zeile leer in Spalte 1)
     header_row = table.rows[0]
     header_row.cells[0].text = ""
     for idx, combo in enumerate(model_combinations, start=1):
         header_row.cells[idx].text = combo.get("label") or f"{combo['pass1']} + {combo['pass2']}"
-    header_row.cells[cols - 1].text = ""
 
     # Extrahiere Abschnitte aus jedem Ergebnis
     parsed_results = [parse_sections_func(result) for result in results]
@@ -1116,9 +1114,6 @@ def create_comparison_docx(results, model_combinations, section_headers, parse_s
                 cell_text = sanitize_sensitive_text(cell_text)
 
             row.cells[combo_idx + 1].text = cell_text
-
-        # Letzte Spalte: leer
-        row.cells[cols - 1].text = ""
 
     # Formatierung: 10pt Schriftgröße, keine Abstände in Tabellenzellen
     for row in table.rows:

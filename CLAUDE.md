@@ -134,6 +134,20 @@ Code geprüft:
   ("F50.0 Restriktive Essstörung"), bei Differenzialdiagnosen "Code prüfen" ("F63.2
   Zwangsstörung", F63.2 ist Kleptomanie). Codes, die nicht in der Tabelle stehen, werden
   nicht geprüft. "[DD nicht in Daten genannt]" wird entfernt, wenn darüber DDs stehen.
+  `ICD10_TITLES` enthält seit Lauf 13 auch F84.0/F84.1/F84.5/F84.9 (Autismus-Spektrum
+  kommt in dieser Praxis oft vor) — vorher fiel ausgerechnet der diagnostisch zentralste
+  Code dieses Falltyps durchs Raster.
+  `check_diagnosis_placement()` (nur Abschnitt 5) und `check_diagnosis_certainty()`
+  (Abschnitt 4 und 5) vergleichen gegen `{F84.0 V}`/`{F33.1 G}` — die Akte markiert jeden
+  Code in der Akutdiagnosen-Liste selbst schon mit Verdacht (V) oder gesichert (G).
+  `_suspected_only_codes()` liest das aus der Akte. Steht ein nur-als-V geführter Code
+  im Bericht unter Haupt-/Nebendiagnose(n) statt unter Differenzialdiagnose(n), oder
+  steht "gesichert"/"bestätigt" in Textnähe seiner Bezeichnung, gibt es einen
+  Prüfhinweis. Lauf 12/13: Kombi 2 schrieb einmal "eine gesicherte Diagnose im
+  Autismus-Spektrum" in Abschnitt 4, ein andermal stand F84.0 unter Nebendiagnose(n)
+  statt Differenzialdiagnose(n) — beides widersprach der Akte, die Autismus/Asperger
+  nirgends als "G" führt. Eine Verneinung im kurzen Vorlauf ("nicht gesichert") schließt
+  den Hinweis aus, sonst hätte er auch korrekt gehedgte Sätze angemeckert.
 - **Abschnitt 1-3:**
   - `missing_subsections_13()` prüft nach Pass 2, ob 1, 2.1–2.5, 3 und 3.1–3.3 vorhanden
     sind. Fehlt etwas, wird Pass 2 bis zu zweimal wiederholt (T +0.1 je Versuch) und die
@@ -157,7 +171,24 @@ Code geprüft:
     zu "Punkte" gemacht und "[Einordnung prüfen]" weggelassen. Andere Testverfahren bleiben.
   - `check_family_status()`: Ein Familienstand im Bericht muss als eigenes Wort in der Akte
     stehen ("verheirateten Mann" belegt nicht "verheiratet"), sonst Prüfhinweis.
-  - `check_somatic_31()`: Prüfhinweis bei psychischen Begriffen (Essstörung, Trauma …) in 3.1.
+  - `check_somatic_31()`: Prüfhinweis bei psychischen Begriffen (Essstörung, Trauma,
+    Zwang, Autismus, Asperger, Symmetrie …) in 3.1. Die Erweiterung um die letzten vier
+    Begriffe (Lauf 13) hat direkt gegriffen: Kombi 2 kopierte einmal die komplette
+    Akutdiagnosen-Liste der Akte (rezidivierende Depression, Zwangsstörung, Verdacht auf
+    Asperger und Autismus) nach 3.1 statt nach Abschnitt 5.
+  - `extract_medication_doses()`/`check_medication_currency()`: Liest je Wirkstoff
+    (`_MEDICATIONS`, aktuell Venlafaxin/Escitalopram/Trimipramin) die zuletzt dokumentierte
+    Dosis aus der Akte, analog zu `extract_bdi_values()`. Prüfhinweis in 3.2, wenn eine
+    genannte Dosis von diesem Wert abweicht und nicht durch "Stand: …" als historischer
+    Wert gekennzeichnet ist. Läufe 11–13: Abschnitt 3.2 nannte wiederholt "Venlafaxin
+    150 mg" statt der zuletzt dokumentierten 225 mg. Eine Dosis wird nie über eine andere
+    Wirkstoff-Erwähnung hinweg zugeordnet (erst vorwärts bis zur nächsten Erwähnung
+    gesucht, sonst rückwärts bis zur vorherigen) — eine reine Zeichen-Abstands-Suche hätte
+    bei "Venlafaxin … 150 mg sowie Escitalopram … 5 mg" der zweiten Zeile fälschlich die
+    150 mg zugeordnet, weil die Zwischenphrase "in einer Dosierung von" den Abstand zur
+    eigenen Dosis vergrößert. Vergleicht nur bei gleicher Einheit (Trimipramin steht in
+    der Akte mal in mg, mal in Tropfen/gtt) — bei Einheitenwechsel bleibt der Check bewusst
+    still, statt eine Umrechnung zu raten.
 - **Familienstand und Lebensereignisse** werden nicht mehr erschlossen (`prompt1-1.txt`,
   `prompt4-1.txt`). gemma4:26b schrieb "verwitwet", weil in der Akte vom verstorbenen
   Ehemann einer anderen Person die Rede war. Fehlt die Angabe, steht "[Angabe fehlt]".
@@ -197,7 +228,11 @@ Code geprüft:
   "Januar 2025" in der Liste (aus "01/2025" machte Pass 2 "01.01.2025"). Widerspricht die
   Einordnung in der Akte dem Manualbereich (13 Punkte als "leicht"), kommt
   "[Einordnung prüfen: …]" dazu. Das Ergebnis steht in `debug_results.log`
-  ("BDI-Werte aus der Akte").
+  ("BDI-Werte aus der Akte"). Nennt ein Satz zwei Datum/Punkte-Paare hinter demselben
+  "BDI 2" ("vom 23.2. mit 6 Punkten …, vom 15.2. mit 24 Punkten …"), werden seit Lauf 13
+  beide erfasst statt nur des ersten. Klammern aus der Akte selbst ("32 Punkte (schwere
+  depressive Episode)") werden beim Extrahieren mit entfernt — sonst verdoppelt
+  `_bdi_line()` sie oder hängt bei "(BDI 22 Punkte)" eine verwaiste schließende Klammer an.
 - `find_person_names()` lässt `NAME_CHECK_MODEL` alle identifizierenden Eigennamen im
   fertigen Bericht auflisten: Personen, Firmen/Arbeitgeber, Einrichtungen, Orte. Der Code
   verwirft Platzhalter ("Frau X.", "F.") und behält nur Namen, die wirklich als Wort im
@@ -240,6 +275,21 @@ Datei aus dem Cache nimmt.
 `sanitize_sensitive_text()` (`docx_generator.py`) ersetzt Initialenpaare ("K. D.") vor
 "Frau K." — die Regel hatte durch ein `\b` nach dem Punkt nie gegriffen, im Bericht stand
 "Frau X. D.".
+
+`create_comparison_docx()` (`docx_generator.py`) hatte bis Version 1.0 eine zusätzliche,
+immer leere Spalte am Tabellenende (`cols = num_combos + 2`, Kommentar "1 Leer"). Die
+Word-Tabelle hat jetzt genau `num_combos + 1` Spalten.
+
+### Versionsnummer
+
+`VERSION` (Projektwurzel, ein einzeiliger SemVer-String) wird von `_get_version()` in
+`app.py` gelesen und per `inject_version()` als `{{ version }}` in alle Templates
+injiziert; `index.html` zeigt sie als Badge im Header. Ein lokaler, nicht versionierter
+Git-Hook (`.git/hooks/pre-commit`, unter Windows `pre-commit.ps1`) erhöht die
+Patch-Version bei jedem Commit automatisch (x.y.z → x.y.(z+1)) und fügt die geänderte
+`VERSION`-Datei dem Commit hinzu. Der Hook ist wie im Projekt `ocr-service` aufgebaut und
+muss auf jeder Maschine, auf der committet wird, einmal manuell angelegt werden — er wird
+nicht über Git verteilt.
 
 ### Datenschutz
 

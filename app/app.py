@@ -37,6 +37,22 @@ _STATIC_VERSION = str(int(max(
 def inject_static_version():
     return {"static_version": _STATIC_VERSION}
 
+
+# App-Version aus VERSION-Datei (Projektwurzel) lesen und in alle Templates injizieren.
+# Ein lokaler pre-commit-Hook erhoeht die Patch-Version automatisch bei jedem Commit.
+def _get_version():
+    version_file = os.path.join(os.path.dirname(__file__), "..", "VERSION")
+    try:
+        with open(version_file, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "0.0.0"
+
+
+@app.context_processor
+def inject_version():
+    return {"version": _get_version()}
+
 # Globaler Event-Queue für Fortschrittsupdates
 progress_queues = {}
 
@@ -397,6 +413,10 @@ ICD10_TITLES = {
     "F60.6": "Ängstliche (vermeidende) Persönlichkeitsstörung",
     "F63.0": "Pathologisches Spielen",
     "F63.2": "Pathologisches Stehlen [Kleptomanie]",
+    "F84.0": "Frühkindlicher Autismus",
+    "F84.1": "Atypischer Autismus",
+    "F84.5": "Asperger-Syndrom",
+    "F84.9": "Tiefgreifende Entwicklungsstörung, nicht näher bezeichnet",
     # Dreistellige Codes (in Differenzialdiagnosen oft ohne Subtyp)
     "F32": "Depressive Episode",
     "F33": "Rezidivierende depressive Störung",
@@ -405,6 +425,7 @@ ICD10_TITLES = {
     "F42": "Zwangsstörung",
     "F43": "Reaktionen auf schwere Belastungen und Anpassungsstörungen",
     "F50": "Essstörungen",
+    "F84": "Tiefgreifende Entwicklungsstörungen",
     "F90": "Hyperkinetische Störungen",
 }
 
@@ -463,8 +484,69 @@ def fix_icd_titles(text):
 # Episodenschwere laut ICD-Code (F32.x / F33.x)
 _EPISODE_SEVERITY = {"0": "leicht", "1": "mittel", "2": "schwer", "3": "schwer", "4": "remittiert"}
 
+# Die Akutdiagnosen-Liste der Akte markiert jeden Code mit "{F84.0 V}" (Verdacht)
+# oder "{F33.1 G}" (gesichert). Codes, die dort NIE als G stehen, sind im Bericht
+# keine gesicherte Diagnose - unabhaengig davon, wie sicher das Modell klingt.
+_AKTE_DIAGNOSIS_MARK_RE = re.compile(r"\{(F\d{2}(?:\.\d{1,2})?)\s+([VG])\}")
+_CERTAINTY_RE = re.compile(r"\bgesichert\w*|\bbestätigt\w*", re.IGNORECASE)
+_NEGATION_RE = re.compile(r"\bnicht\b", re.IGNORECASE)
 
-def add_diagnosis_hints(text, latest_bdi=None):
+
+def _suspected_only_codes(source_text):
+    """Codes, die in der Akte durchgaengig nur als Verdachtsdiagnose (V) markiert sind."""
+    seen = {}
+    for code, status in _AKTE_DIAGNOSIS_MARK_RE.findall(source_text):
+        seen.setdefault(code.upper(), set()).add(status)
+    return {code for code, stati in seen.items() if stati == {"V"}}
+
+
+def check_diagnosis_certainty(text, source_text):
+    """Warnt, wenn "gesichert"/"bestaetigt" in der Naehe der Bezeichnung einer Diagnose
+    steht, die die Akte durchgaengig nur als Verdacht (V) fuehrt. Anwendbar auf jeden
+    Abschnitt, nicht nur Abschnitt 5 - Lauf 12: Kombi 2 schrieb "eine gesicherte
+    Diagnose im Autismus-Spektrum" in Abschnitt 4, obwohl die Akte Autismus/Asperger
+    nirgends als "G" (gesichert) markiert.
+    Lauf 13: "nicht gesichert"/"nicht eindeutig gesichert" wurden faelschlich mit
+    angemeckert, obwohl das korrekt gehedgt ist - "nicht" im kurzen Vorlauf vor dem
+    Treffer schliesst den Hinweis deshalb aus."""
+    suspected = _suspected_only_codes(source_text)
+    if not suspected:
+        return []
+    label_words = {w[:6] for code in suspected for w in _norm_title(ICD10_TITLES.get(code, "")).split()
+                   if len(w) >= 4}
+    if not label_words:
+        return []
+    hints = []
+    for m in _CERTAINTY_RE.finditer(text):
+        if _NEGATION_RE.search(text[max(0, m.start() - 30):m.start()]):
+            continue
+        window = _norm_title(text[max(0, m.start() - 60):m.end() + 60])
+        if any(w in window for w in label_words):
+            hints.append(f"\"{m.group(0)}\" steht nahe einer Diagnose, die die Akte nur als "
+                         "Verdacht führt — prüfen")
+    return hints
+
+
+def check_diagnosis_placement(text, source_text):
+    """Warnt, wenn ein Code unter Haupt-/Nebendiagnose(n) steht, den die Akte
+    durchgaengig nur als Verdachtsdiagnose (V) fuehrt - nur fuer Abschnitt 5.
+    Lauf 12: Kombi 2 fuehrte F84.0 unter Nebendiagnose(n) statt unter
+    Differenzialdiagnose(n)."""
+    suspected = _suspected_only_codes(source_text)
+    if not suspected:
+        return []
+    dd_match = re.search(r"Differen[zt]ialdiagnose", text, re.IGNORECASE)
+    coded_part = text[:dd_match.start()] if dd_match else text
+    hints = []
+    for code in dict.fromkeys(c[:3].upper() + c[3:].lower() for c in _ICD_CODE_RE.findall(coded_part)):
+        if code in suspected:
+            hints.append((code, f"{code} steht unter Haupt-/Nebendiagnose(n), die Akte führt es aber "
+                         "durchgängig nur als Verdachtsdiagnose (V) — gehört das nicht eher unter "
+                         "Differenzialdiagnose(n)?"))
+    return hints
+
+
+def add_diagnosis_hints(text, latest_bdi=None, source_text=""):
     """Haengt an Abschnitt 5 Pruefhinweise fuer formale Diagnosefehler an.
 
     Die Regeln stehen auch in prompt5-1/5-2, werden vom Modell aber nicht
@@ -472,6 +554,7 @@ def add_diagnosis_hints(text, latest_bdi=None):
     ausser rein umformulierte ICD-Bezeichnungen (fix_icd_titles).
     latest_bdi: juengster Eintrag aus extract_bdi_values() fuer den Abgleich
     Schweregrad <-> Testwert.
+    source_text: Akte fuer check_diagnosis_placement/check_diagnosis_certainty.
     """
     text, title_hints = fix_icd_titles(text)
     dd_match = re.search(r"Differen[zt]ialdiagnose", text, re.IGNORECASE)
@@ -495,6 +578,8 @@ def add_diagnosis_hints(text, latest_bdi=None):
             hints.append((c, f"{c} steht zugleich als Diagnose und als Differenzialdiagnose"))
 
     hints += title_hints
+    if source_text:
+        hints += check_diagnosis_placement(text, source_text)
 
     # Vorlagenrest: "[DD nicht in Daten genannt]" obwohl darueber DDs stehen (Lauf 9)
     if dd_part and _ICD_CODE_RE.search(dd_part) and "[DD nicht in Daten genannt]" in dd_part:
@@ -590,7 +675,8 @@ def _subsection_span(text, number, next_pattern):
 # "Essstoerung" in 3.1 bei beiden Kombis). \b vorne, damit "antidepressiv" nicht trifft.
 _PSYCH_IN_31_RE = re.compile(
     r"\b(Essstörung|Anorexi\w*|Bulimi\w*|Depression\w*|depressiv\w*|Angststörung|Panikstörung|"
-    r"Trauma\w*|traumati\w*|Missbrauch\w*|Gewalt\w*|Sucht\w*|Suizid\w*)", re.IGNORECASE)
+    r"Trauma\w*|traumati\w*|Missbrauch\w*|Gewalt\w*|Sucht\w*|Suizid\w*|Zwang\w*|Autismus\w*|"
+    r"Asperger\w*|Symmetrie\w*)", re.IGNORECASE)
 
 
 def check_somatic_31(text):
@@ -628,6 +714,7 @@ def section13_hints(text, source_text=""):
              for i, ns in by_section.items()}
     if source_text:
         hints[0] += check_family_status(parse_sections(text)[0], source_text)
+        hints[2] += check_medication_currency(text, source_text)
     hints[1] += check_befund_23(text)
     hints[2] += check_somatic_31(text)
     return hints
@@ -647,6 +734,10 @@ def _bdi_line(v):
 
 # Andere Testverfahren in 2.5 erkennt man an ihrem Kuerzel (BAI, PHQ-9, SCL-90 ...)
 _TEST_ACRONYM_RE = re.compile(r"\b[A-Z]{2,6}(?:-[IVX0-9]+)?\b")
+# BD[IT] statt nur BDI: Lauf 13 schrieb "BDT-II" (Tippfehler) fuer ein Datum, das
+# schon einen korrekten BDI-Eintrag hatte - das Duplikat wurde nicht erkannt und
+# landete unter "andere Testverfahren".
+_BDI_TYPO_RE = re.compile(r"\bBD[IT]\b", re.IGNORECASE)
 
 
 def replace_bdi_in_25(text, bdi_values):
@@ -664,7 +755,7 @@ def replace_bdi_in_25(text, bdi_values):
         seg = seg.strip(" .")
         if not seg:
             continue
-        is_bdi = "BDI" in seg.upper() or (
+        is_bdi = _BDI_TYPO_RE.search(seg) or (
             re.search(r"\d+\s*Punkt", seg) and not _TEST_ACRONYM_RE.search(seg))
         if not is_bdi:
             others.append(seg)
@@ -818,33 +909,42 @@ def extract_bdi_values(text):
         for i, bdi in enumerate(matches):
             end = matches[i + 1].start() if i + 1 < len(matches) else len(line)
             segment = line[bdi.end():min(end, bdi.end() + 200)]
-            score = _SCORE_RE.search(segment)
-            if not score:
-                continue
-            before = segment[:score.start()]
-            day = month = year = None
-            if (d := _NUM_DATE_RE.search(before)):
-                day, month = int(d.group(1)), int(d.group(2))
-                year = _full_year(d.group(3)) if d.group(3) else None
-            elif (d := _DAY_MONTH_RE.search(before)):
-                day, month = int(d.group(1)), _MONTHS[d.group(2).lower()]
-                year = int(d.group(3)) if d.group(3) else None
-            elif (d := _MONTH_RE.search(before)):
-                month = _MONTHS[d.group(1).lower()]
-                year = int(d.group(2)) if d.group(2) else None
-            elif entry:
-                day, month, year = entry
-            if month is None or not 1 <= month <= 12:
-                continue
-            if year is None:
-                year = _infer_year(month, day, entry)
+            # Ein Satz kann mehrere Datum/Punkte-Paare hinter einem einzigen "BDI"
+            # nennen ("vom 23.2. mit 6 Punkten ..., vom 15.2. mit 24 Punkten ...") -
+            # jeden Score-Treffer einzeln mit dem davor/danach stehenden Text auswerten,
+            # nicht nur den ersten im Segment.
+            scores = list(_SCORE_RE.finditer(segment))
+            for j, score in enumerate(scores):
+                before_start = scores[j - 1].end() if j > 0 else 0
+                before = segment[before_start:score.start()]
+                day = month = year = None
+                if (d := _NUM_DATE_RE.search(before)):
+                    day, month = int(d.group(1)), int(d.group(2))
+                    year = _full_year(d.group(3)) if d.group(3) else None
+                elif (d := _DAY_MONTH_RE.search(before)):
+                    day, month = int(d.group(1)), _MONTHS[d.group(2).lower()]
+                    year = int(d.group(3)) if d.group(3) else None
+                elif (d := _MONTH_RE.search(before)):
+                    month = _MONTHS[d.group(1).lower()]
+                    year = int(d.group(2)) if d.group(2) else None
+                elif entry and j == 0:
+                    day, month, year = entry
+                if month is None or not 1 <= month <= 12:
+                    continue
+                if year is None:
+                    year = _infer_year(month, day, entry)
 
-            interpretation = re.split(r"[,;]", segment[score.end():], maxsplit=1)[0].strip(" .")
-            results.append({
-                "day": day, "month": month, "year": year,
-                "score": int(score.group(1)),
-                "interpretation": interpretation[:80],
-            })
+                after_end = scores[j + 1].start() if j + 1 < len(scores) else len(segment)
+                # Die Akte klammert die Einordnung teils schon selbst ein
+                # ("32 Punkte (schwere depressive Episode)") - Klammern mit ausstreifen,
+                # sonst verdoppelt _bdi_line() sie oder haengt eine verwaiste ")" an.
+                interpretation = re.split(r"[,;]", segment[score.end():after_end],
+                                           maxsplit=1)[0].strip(" .()")
+                results.append({
+                    "day": day, "month": month, "year": year,
+                    "score": int(score.group(1)),
+                    "interpretation": interpretation[:80],
+                })
 
     unique = {}
     for r in results:
@@ -888,6 +988,98 @@ def format_bdi_block(values):
         "Keine Werte ergänzen, weglassen oder umdatieren. Datumsangaben genau so übernehmen "
         "(steht nur ein Monat da, KEINEN Tag ergänzen). Hinweise in eckigen Klammern unverändert übernehmen."
     )
+
+
+# --- Medikamentendosis deterministisch aus der Akte lesen --------------------
+# Lauf 11-13: Abschnitt 3.2 nannte wiederholt eine veraltete Dosis ohne Datumsbezug
+# (z.B. "Venlafaxin 150 mg" statt der zuletzt dokumentierten 225 mg vom 23.10.2025).
+# Anders als bei den BDI-Werten wird hier NICHT ersetzt (3.2 ist Fliesstext mit
+# Historie, kein starres Listenformat) - nur geprueft und als Pruefhinweis markiert.
+
+# Kuratierte, keine vollstaendige Liste - wie ICD10_TITLES bei Bedarf erweiterbar.
+_MEDICATIONS = {
+    "Venlafaxin": ("Venlafaxin",),
+    "Escitalopram": ("Escitalopram", "Escit"),
+    "Trimipramin": ("Trimipramin", "Trimi"),
+}
+_DOSE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(mg|mcg|µg|tropfen|gtt)\b", re.IGNORECASE)
+_MED_UNIT_NAMES = {"mg": "mg", "mcg": "mcg", "µg": "µg", "tropfen": "Tropfen", "gtt": "Tropfen"}
+_STAND_RE = re.compile(r"\bStand\b", re.IGNORECASE)
+_MED_NAME_RES = {drug: re.compile(r"\b(?:" + "|".join(re.escape(a) for a in aliases) + r")\b", re.IGNORECASE)
+                 for drug, aliases in _MEDICATIONS.items()}
+
+
+def _drug_name_matches(text):
+    matches = [(m.start(), m.end(), drug) for drug, rx in _MED_NAME_RES.items() for m in rx.finditer(text)]
+    matches.sort()
+    return matches
+
+
+def _doses_per_drug(text, max_dist=60):
+    """[(Wirkstoff, Wert, Einheit)] je Wirkstoff-Erwaehnung in `text`. Sucht zuerst
+    vorwaerts bis zur naechsten Wirkstoff-Erwaehnung (deckt "Venlafaxin in einer
+    Dosierung von 150 mg sowie Escitalopram ..." ab, wo reine Zeichen-Distanz die
+    Dosis dem falschen, naeheren Nachbarn zuordnen wuerde), sonst rueckwaerts bis zur
+    vorherigen Erwaehnung (deckt "225 mg Venlafaxin" ab). Eine Dosis wird nie ueber
+    eine andere Wirkstoff-Erwaehnung hinweg zugeordnet."""
+    drug_matches = _drug_name_matches(text)
+    results = []
+    for i, (start, end, drug) in enumerate(drug_matches):
+        next_start = drug_matches[i + 1][0] if i + 1 < len(drug_matches) else len(text)
+        prev_end = drug_matches[i - 1][1] if i > 0 else 0
+        dose_m = _DOSE_RE.search(text[end:min(next_start, end + max_dist)])
+        if not dose_m:
+            back = list(_DOSE_RE.finditer(text[max(prev_end, start - max_dist):start]))
+            dose_m = back[-1] if back else None
+        if dose_m:
+            value = float(dose_m.group(1).replace(",", "."))
+            unit = _MED_UNIT_NAMES[dose_m.group(2).lower()]
+            results.append((drug, value, unit))
+    return results
+
+
+def extract_medication_doses(text):
+    """Liest je bekanntem Wirkstoff die zuletzt dokumentierte Dosis aus Freitext-
+    Notizen, analog zu extract_bdi_values()."""
+    latest = {}
+    entry = None
+    for line in text.splitlines():
+        m = _ENTRY_DATE_RE.match(line)
+        if m:
+            entry = (int(m.group(1)), int(m.group(2)), _full_year(m.group(3)))
+        if not entry:
+            continue
+        for drug, value, unit in _doses_per_drug(line):
+            day, month, year = entry
+            key = (year, month, day)
+            if drug not in latest or key >= latest[drug]["_key"]:
+                latest[drug] = {"drug": drug, "day": day, "month": month, "year": year,
+                                 "value": value, "unit": unit, "_key": key}
+    return {drug: {k: v for k, v in info.items() if k != "_key"} for drug, info in latest.items()}
+
+
+def check_medication_currency(text, source_text):
+    """Warnt, wenn Abschnitt 3.2 eine Dosis nennt, die von der zuletzt in der Akte
+    dokumentierten Dosis desselben Wirkstoffs abweicht, ohne durch ein "Stand:"-Datum
+    als historischer Wert gekennzeichnet zu sein."""
+    latest = extract_medication_doses(source_text)
+    if not latest:
+        return []
+    span = _subsection_span(text, "3.2", r"3\.3")
+    if not span:
+        return []
+    body = text[span[0]:span[1]]
+    hints = []
+    for drug, value, unit in _doses_per_drug(body):
+        info = latest.get(drug)
+        if not info or unit != info["unit"] or value == info["value"]:
+            continue
+        name_m = _MED_NAME_RES[drug].search(body)
+        if name_m and _STAND_RE.search(body[max(0, name_m.start() - 40):name_m.end() + 40]):
+            continue
+        hints.append(f"{drug}: Bericht nennt {value:g} {unit}, zuletzt dokumentiert in der Akte "
+                     f"sind {info['value']:g} {info['unit']} ({_bdi_when(info)}) — Dosis prüfen")
+    return hints
 
 
 # --- Kalenderwochen in Daten umrechnen --------------------------------------
@@ -1749,8 +1941,10 @@ def run_computation_task(session_id, file_contents, paste_text):
                         if p1 in consequences:
                             text = apply_consequence_lines(text, *consequences[p1])
                         text = _append_hints(text, sorc_structure_hints(text))
+                        text = _append_hints(text, check_diagnosis_certainty(text, "\n".join(source_texts)))
                     if key == "5":
-                        text = add_diagnosis_hints(text, latest_bdi)
+                        text = add_diagnosis_hints(text, latest_bdi, "\n".join(source_texts))
+                        text = _append_hints(text, check_diagnosis_certainty(text, "\n".join(source_texts)))
                 progress(users, key, 2, "section_done")
                 for idx in users:
                     section_results[idx][key] = text
