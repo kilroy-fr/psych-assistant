@@ -1,0 +1,11 @@
+# Logs enthalten Echtdaten aus Patientenakten und duerfen nicht ins Image
+# (COPY data ./data kopierte bisher data/debug_results.log mit).
+*.log
+data/debug_results.log
+
+.git
+.claude
+.vscode
+certs
+storage
+__pycache__

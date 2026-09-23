@@ -9,6 +9,9 @@ services:
     environment:
       - OLLAMA_HOST=http://ollama:11434
       - TZ=Europe/Berlin
+      # 1 = Inhalte (Pass-1-Vorschau, SORC-Block, gefundene Namen) in data/debug_results.log.
+      # Nur fuer Fehlersuche, das Log enthaelt dann Echtdaten.
+      - LOG_PATIENT_CONTENT=0
     networks:
       - ollama-net
       - caddy-proxy-network
